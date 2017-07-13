@@ -154,30 +154,22 @@ public class SchedulerCombo extends JPanel
 			// do nothing, flag already set in FCFS
 			if (source == sjf)
 			{
-				FCFS.sjfKey = 1;
 				FCFS.algorithm = 1;
-				System.out.println(FCFS.sjfKey);
 			}
 		
 			// flip flag in FCFS
 			else if (source == ljf)
 			{
-				FCFS.sjfKey = -1;
 				FCFS.algorithm = 2;
-				System.out.println(FCFS.sjfKey);
 			}
 			
 			else if (source == edd)
 			{
-				// add functionality
-				FCFS.sjfKey = 1;
 				FCFS.algorithm = 3;
 			}
 			
 			else if (source == fdd)
 			{
-				// add functionality
-				FCFS.sjfKey = -1;
 				FCFS.algorithm = 4;
 			}
 		}

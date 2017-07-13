@@ -17,7 +17,6 @@ public class FCFS
 	static int workerCount;
 	static boolean wait = true;
 	static int algorithm = 1;
-	static int sjfKey = 1;
 	static List<String> workerNames = new ArrayList<String>();
 	static List<Integer> workerRanks = new ArrayList<Integer>();
 	static String workerFile = null;
@@ -83,17 +82,11 @@ public class FCFS
 		Worker[] workers = new Worker[workerCount];
 		for (int i = 0; i < workerCount; i++)
 		{
-			workers[i] = new Worker(workerNames.remove(0), workerRanks.remove(0));
-			
-		}
-
-		for (int i = 0; i < workerCount; i++)
-		{
-			System.out.println(workers[i].getWorkerName() + " " + workers[i].getRank());
+			workers[i] = new Worker(workerNames.remove(0), workerRanks.remove(0));		
 		}
 			
-       	// create worker queues from jobList
-       	for (double currentTime = 0; currentTime < SIMULATION_TIME; currentTime = currentTime + SIMULATION_INCREMENT)
+       	// create ordered worker queues from jobList
+       	while (!jobList.isEmpty())
        	{					
        		boolean assigned = false;
 			
@@ -116,96 +109,54 @@ public class FCFS
        			}
        		}
        		workerID = smallestIndex;
-
        		
        		// setup individual worker queues
-       		// if buffer is empty, transfer job from jobLogQueue to single job buffer
-       		if (pcb == null)
+       		// pull job from queue for assignment
+       		pcb = jobList.getNextJob();	
+
+       		// worker is capable of processing job
+       		if (workers[workerID].getRank() >= pcb.getJobRank())
        		{
-       			// 	create process control block with the next job
-       			pcb = jobList.getNextJob();
-       		}
+     			workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
+       			workers[workerID].addWorkerLoad(pcb.getJobTime());
+       			pcb = null;
+       			assigned = true;
+       		}		
 				
-       		// when there is a job ready to be scheduled
-       		if (pcb != null)
+       		// lowest queue size worker not capable, find another worker
+       		// fix balances algo, doesn't balance nicely, still stacking unfairly to capable workers
+       		else
        		{
-       			// worker is capable of processing job
-       			if (workers[workerID].getRank() >= pcb.getJobRank())
+       			// cycle through all workers
+       			if ((lastAlternateWorker + 1) >= workerCount) 
+					lastAlternateWorker = 0;
+					
+       			// start at last alternate worker + 1, ensures one worker doesn't get piled on
+       			for (int i = (lastAlternateWorker); i < workerCount; i++)
        			{
-               		// When arrival time == current time, load a job to the selected worker queue
-       				if (pcb.getArrivalTime() <= currentTime)
+       				if (workers[i].getRank() >= pcb.getJobRank())
        				{
-       					// check for priority preemption, force to front of queue
-       					if (pcb.getPriority() == 0)
-       					{
-       						workers[workerID].addWorkerLoad(pcb.getJobTime());
-       						pcb.setJobTime(0);
-       					}
-						
        					// transfer job from joblist to worker queue 
-       					workers[workerID].putQueue(pcb); 
-       					workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
-       					workers[workerID].addWorkerLoad(pcb.getJobTime());
+       					workers[i].putQueue(pcb);
+       					workers[i].setJobsLoaded(workers[i].getJobsLoaded() + 1);
+       					workers[i].addWorkerLoad(pcb.getJobTime());
+       					System.out.println("alternative worker " + (i+1) + " found for job " + pcb.getJobName());
        					pcb = null;
        					assigned = true;
-       				}
+       					lastAlternateWorker = i+1;
 
-       				// return job to list, not ready yet
-       				else
-       				{
-       					System.out.println("time:"+currentTime+" return "+ pcb.getJobName()+" to queue");
-       					jobList.addNextJob(pcb);
-       					pcb = null;
-       				}
-       			}		
-				
-       			// lowest queue size worker not capable, find another worker
-       			// fix balances algo, doesn't balance nicely, still stacking unfairly to capable workers
-       			else
-       			{
-       				// cycle through all workers
-       				if ((lastAlternateWorker + 1) >= workerCount) 
-						lastAlternateWorker = 0;
-					
-       				// start at last alternate worker + 1, ensures one worker doesn't get piled on
-       				for (int i = (lastAlternateWorker); i < workerCount; i++)
-       				{
-       					if (workers[i].getRank() >= pcb.getJobRank())
-       					{
-       						// System.out.println("Job name:" + pcb.getJobName() + " Job rank:" + pcb.getJobRank() + " Worker rank:" + workers[workerID].getRank());
-
-       						if (pcb.getArrivalTime() <= currentTime)
-       						{
-       							// check for priority preemption, force to front of queue
-       							if (pcb.getPriority() == 0)
-       							{
-       								workers[i].addWorkerLoad(pcb.getJobTime());
-       								pcb.setJobTime(0);
-       							}
-							
-       							// transfer job from joblist to worker queue 
-       							workers[i].putQueue(pcb);
-       							workers[i].setJobsLoaded(workers[i].getJobsLoaded() + 1);
-       							workers[i].addWorkerLoad(pcb.getJobTime());
-       							System.out.println("alternative worker " + (i+1) + " found for job " + pcb.getJobName());
-       							pcb = null;
-       							assigned = true;
-       							lastAlternateWorker = i+1;
-
-       							break; // successful target found, stop looking
-       						}
-       					}	
-       				}
-					
-       				if (assigned == false)
-       				{
-       					System.out.println(pcb.getJobName() + " ditched, failure to assign");
-       					info += "Failure to assign " + pcb.getJobName() + " no capable worker\n"; 
-       					unassignedJobs.add(pcb);
-       					pcb = null; // ditch job for now
-       				}
+       					break; // successful target found, stop looking			
+       				}	
        			}
-       		}
+					
+       			if (assigned == false)
+       			{
+       				System.out.println(pcb.getJobName() + " ditched, failure to assign");
+       				info += "Failure to assign " + pcb.getJobName() + " no capable worker\n"; 
+       				unassignedJobs.add(pcb);
+       				pcb = null; // ditch job for now
+       			}
+       		} 		
        	}
  
 		// process queues

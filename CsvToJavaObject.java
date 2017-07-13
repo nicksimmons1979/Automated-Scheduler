@@ -17,10 +17,12 @@ import javax.swing.JTextArea;
 public class CsvToJavaObject
 {
 	// storage for each object imported
-	private List<ProcessControlBlock> jobList = new ArrayList<ProcessControlBlock>();
+	private PriorityQueue jobList = new PriorityQueue();
 	private int itemsLoaded = 0;
+	private int workersLoaded = 0;
 	
-	public void convertCsvToJava(String csvFileToRead)
+	// load jobs csv file to object
+	public void convertJobsCsvToJava(String csvFileToRead)
 	{
 		// storage for each line
 		BufferedReader br = null;
@@ -55,9 +57,90 @@ public class CsvToJavaObject
 				// adding job objects to a list
 				if (jobObject.getKitted() == true)
 				{
-					jobList.add(jobObject);
+					if (FCFS.algorithm == 1)
+					{
+						jobList.putQueue(jobObject, jobObject.getJobTime());
+					}
+					else if (FCFS.algorithm == 2)
+					{
+						jobList.putQueue(jobObject, -1*jobObject.getJobTime());
+					}
+					else if (FCFS.algorithm == 3)
+					{
+						jobList.putQueue(jobObject, jobObject.getDueTime());
+					}
+
+					else if (FCFS.algorithm == 4)
+					{
+						jobList.putQueue(jobObject, -1*jobObject.getDueTime());
+					}
+					
 					itemsLoaded++;
 				}
+			}
+		}
+		
+		// can't find file to open?
+		catch (FileNotFoundException e)
+		{
+			JFrame frameError = new JFrame ("ERROR");
+			frameError.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
+			JTextArea taError = new JTextArea (20, 30);
+			frameError.getContentPane().add(taError);
+			frameError.pack();
+			frameError.setVisible(true);	
+			taError.setText("File not found");	 
+		}
+		
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		
+		// close file
+		finally
+		{
+			if (br != null)
+			{
+				try
+				{
+					br.close();
+				}
+				
+				catch (IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	// load worker csv to global variable
+	public void convertWorkersCsvToJava(String csvFileToRead)
+	{
+		// storage for each line
+		BufferedReader br = null;
+		String line = "";
+		String splitBy = ",";
+
+		try
+		{
+			br = new BufferedReader(new FileReader(csvFileToRead));
+
+			// read and dispose of first line - line headers
+			line = br.readLine();
+			
+			// read entire csv file
+			while ((line = br.readLine()) != null)
+			{
+				// split on comma(',')
+				String[] workerStats = line.split(splitBy);
+
+				// store name, rank to list
+				FCFS.workerNames.add(workerStats[0]);
+				FCFS.workerRanks.add(Integer.parseInt(workerStats[1]));
+				
+				workersLoaded++;
 			}
 		}
 		
@@ -109,19 +192,26 @@ public class CsvToJavaObject
 		}
 	}
 	
-	// returns next job from array list
+	// returns and removes next job from array list
 	public ProcessControlBlock getNextJob()
 	{
 		if (itemsLoaded != 0)
 		{
 			ProcessControlBlock temp;
-			temp = jobList.get(0);
-			jobList.remove(0);
+			temp = (ProcessControlBlock) jobList.getQueue();
+//			jobList.remove(0);
 			itemsLoaded--;
 			return temp;
 		}
 		else
 			return null;
+	}
+	
+	// put job end of list
+	public void addNextJob(ProcessControlBlock job)
+	{
+		jobList.putQueue(job,0);
+		itemsLoaded++;
 	}
 	
 	// returns size of job array list
@@ -137,6 +227,11 @@ public class CsvToJavaObject
 			return true;
 		else
 			return false;
+	}
+	
+	public int getWorkersLoaded()
+	{
+		return workersLoaded;
 	}
 }
 

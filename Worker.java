@@ -6,7 +6,7 @@ public class Worker
 	private String workerName;
 	private double workerLoad;
 	private int workerRank;
-	private PriorityQueue workerQ;
+	private List<ProcessControlBlock> workerQ;
 	private ProcessControlBlock job;
 	private int jobsLoaded;
 	private double jobLoadTime;
@@ -16,7 +16,7 @@ public class Worker
 	{
 		this.workerName = workerName;
 		this.workerRank = workerRank;
-		this.workerQ = new PriorityQueue();
+		this.workerQ = new ArrayList<ProcessControlBlock>();
 		this.job = null;
 		this.jobsLoaded = 0;
 		this.jobLoadTime = 0;
@@ -62,14 +62,14 @@ public class Worker
 		return workerRank;
 	}
 	
-	public void putQueue(Object o, float key)
+	public void putQueue(ProcessControlBlock pcb)
 	{
-		workerQ.putQueue(o, key);
+		workerQ.add(pcb);
 	}
 	
-	public Object getQueue()
+	public ProcessControlBlock getQueue()
 	{
-		return workerQ.getQueue();
+		return workerQ.remove(0);
 	}
 	
 	public Object getJob()
@@ -127,7 +127,7 @@ public class Worker
 		return job.getJobName();
 	}
 	
-	public PriorityQueue getWorkerQ()
+	public List<ProcessControlBlock> getWorkerQ()
 	{
 		return workerQ;
 	}

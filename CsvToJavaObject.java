@@ -5,10 +5,12 @@
 //*****************************************************************************************************************************
 
 import java.io.BufferedReader;
+import java.util.Comparator;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.swing.JFrame;
 import javax.swing.JTextArea;
@@ -17,7 +19,8 @@ import javax.swing.JTextArea;
 public class CsvToJavaObject
 {
 	// storage for each object imported
-	private PriorityQueue jobList = new PriorityQueue();
+//	private PriorityQueue jobList = new PriorityQueue();
+	private List<ProcessControlBlock> jobList = new ArrayList<ProcessControlBlock>();
 	private int itemsLoaded = 0;
 	private int workersLoaded = 0;
 	
@@ -54,29 +57,49 @@ public class CsvToJavaObject
 				jobObject.setKitted(Boolean.parseBoolean(jobs[5]));
 				jobObject.setJobRank(Integer.parseInt(jobs[6]));
 
-				// adding job objects to a list
+				// job ready to build
 				if (jobObject.getKitted() == true)
 				{
-					if (FCFS.algorithm == 1)
-					{
-						jobList.putQueue(jobObject, jobObject.getJobTime());
-					}
-					else if (FCFS.algorithm == 2)
-					{
-						jobList.putQueue(jobObject, -1*jobObject.getJobTime());
-					}
-					else if (FCFS.algorithm == 3)
-					{
-						jobList.putQueue(jobObject, jobObject.getDueTime());
-					}
-
-					else if (FCFS.algorithm == 4)
-					{
-						jobList.putQueue(jobObject, -1*jobObject.getDueTime());
-					}
-					
+					// put job list master queue
+					jobList.add(jobObject);
 					itemsLoaded++;
 				}
+			}
+			
+			// dump joblist pre priority sort
+			System.out.println("Pre Sort");
+			for (int i=0; i < jobList.size();i++)
+			{
+				ProcessControlBlock temp = jobList.get(i);
+				System.out.println("job:" + temp.getJobName() +" priority:"+ temp.getPriority()+ " jobtime:"+temp.getJobTime()+ " arrivaltime:"+temp.getArrivalTime()+ " duetime:"+temp.getDueTime());
+			}
+			
+			
+			// secondary sort by job time	
+			if (FCFS.algorithm == 1)
+			{
+				Collections.sort(jobList, CsvToJavaObject.compareAlgo1());
+			}
+			else if (FCFS.algorithm == 2)
+			{
+				Collections.sort(jobList, CsvToJavaObject.compareAlgo2());
+			}
+			else if (FCFS.algorithm == 3)
+			{
+				Collections.sort(jobList, CsvToJavaObject.compareAlgo3());
+			}
+
+			else if (FCFS.algorithm == 4)
+			{
+				Collections.sort(jobList, CsvToJavaObject.compareAlgo4());
+			}
+
+			// dump joblist pre priority sort
+			System.out.println("\nPost Sort");
+			for (int i=0; i < jobList.size();i++)
+			{
+				ProcessControlBlock temp = jobList.get(i);
+				System.out.println("job:" + temp.getJobName() +" priority:"+ temp.getPriority()+ " jobtime:"+temp.getJobTime()+ " arrivaltime:"+temp.getArrivalTime()+ " duetime:"+temp.getDueTime());
 			}
 		}
 		
@@ -198,7 +221,7 @@ public class CsvToJavaObject
 		if (itemsLoaded != 0)
 		{
 			ProcessControlBlock temp;
-			temp = (ProcessControlBlock) jobList.getQueue();
+			temp = (ProcessControlBlock) jobList.remove(0);
 //			jobList.remove(0);
 			itemsLoaded--;
 			return temp;
@@ -210,7 +233,7 @@ public class CsvToJavaObject
 	// put job end of list
 	public void addNextJob(ProcessControlBlock job)
 	{
-		jobList.putQueue(job,0);
+		jobList.add(job);
 		itemsLoaded++;
 	}
 	
@@ -233,5 +256,105 @@ public class CsvToJavaObject
 	{
 		return workersLoaded;
 	}
+	
+	// Shortest Job First - DONE
+	// sort ArrivalTime->priority->jobTime
+	public static Comparator<ProcessControlBlock> compareAlgo1()
+	{   
+		Comparator<ProcessControlBlock> comp = new Comparator<ProcessControlBlock>()
+		{
+			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
+			{   
+				System.out.println("call algo:"+ FCFS.algorithm);
+				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				if (result == 0)
+				{
+					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+				}
+				if (result == 0)
+				{
+					result = new Float(job1.getJobTime()).compareTo(job2.getJobTime());
+				}
+				return result;
+			}        
+		};
+		
+		return comp;
+	}
+	
+	// Longest Job First - DONE
+	// sort ArrivalTime->priority->-1*jobTime
+	public static Comparator<ProcessControlBlock> compareAlgo2()
+	{   
+		Comparator<ProcessControlBlock> comp = new Comparator<ProcessControlBlock>()
+		{
+			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
+			{  
+				System.out.println("call algo:"+ FCFS.algorithm);
+				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				if (result == 0)
+				{
+					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+				}
+				if (result == 0)
+				{
+					result = new Float(job2.getJobTime()).compareTo(job1.getJobTime());
+				}
+				return result;
+			}        
+		};
+		
+		return comp;
+	} 
+	
+	// Earliest Due Date - DONE
+	// sort ArrivalTime->priority->-1*dueTime
+	public static Comparator<ProcessControlBlock> compareAlgo3()
+	{   
+		Comparator<ProcessControlBlock> comp = new Comparator<ProcessControlBlock>()
+		{
+			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
+			{   
+				System.out.println("call algo:"+ FCFS.algorithm);
+				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				if (result == 0)
+				{
+					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+				}
+				if (result == 0)
+				{
+					result = new Float(job1.getDueTime()).compareTo(job2.getDueTime());
+				}
+				return result;
+			}        
+		};
+		
+		return comp;
+	} 
+	
+	// Farthest Due Date - DONE
+	// sort ArrivalTime->priority->dueTime
+	public static Comparator<ProcessControlBlock> compareAlgo4()
+	{   
+		Comparator<ProcessControlBlock> comp = new Comparator<ProcessControlBlock>()
+		{
+			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
+			{   
+				System.out.println("call algo:"+ FCFS.algorithm);
+				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());				if (result == 0)
+				{
+					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+				}
+				if (result == 0)
+				{
+					result = new Float(job2.getDueTime()).compareTo(job1.getDueTime());
+				}
+				return result;
+			}        
+		};
+		
+		return comp;
+	} 
+
 }
 

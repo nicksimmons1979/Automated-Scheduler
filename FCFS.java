@@ -25,7 +25,7 @@ public class FCFS
 	public static void main(String args[]) throws IOException
 	{	
 		// constants defining simulation characteristics
-		final double SIMULATION_TIME = 4000; // hrs
+		final double SIMULATION_TIME = 300; // hrs
 		final double SIMULATION_INCREMENT = 0.01;
 		DecimalFormat fmt = new DecimalFormat("0.##"); // statistics output format
 		
@@ -38,6 +38,7 @@ public class FCFS
 		List<ProcessControlBlock> unassignedJobs = new ArrayList<ProcessControlBlock>();
 		double averageTurnAroundTime = 0;		
 		double averageWaitingTime = 0;
+		double hoursTillDue = 0;
 
 		int workerID = 0;
 		int missedDeadlines = 0;				
@@ -109,6 +110,7 @@ public class FCFS
        			}
        		}
        		workerID = smallestIndex;
+       		System.out.println("worker selected:"+ (workerID+1));
        		
        		// setup individual worker queues
        		// pull job from queue for assignment
@@ -117,7 +119,8 @@ public class FCFS
        		// worker is capable of processing job
        		if (workers[workerID].getRank() >= pcb.getJobRank())
        		{
-     			workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
+				workers[workerID].putQueue(pcb);
+       			workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
        			workers[workerID].addWorkerLoad(pcb.getJobTime());
        			pcb = null;
        			assigned = true;
@@ -164,35 +167,43 @@ public class FCFS
 		{
 			// process all workers simultaneously
 			for (int i = 0; i < workerCount; i++)
-			{						
+			{				
+
+				
 				// if there is a job running on worker
 				if (workers[i].getJob() != null)
 				{
 					// if job on worker is finished
 					if ((workers[i].getJobLoadTime() + workers[i].getJobTime()) <= currentTime)
 					{
+						System.out.println("Job " + workers[i].getJobName() + " finished at " + (workers[i].getJobLoadTime() + workers[i].getJobTime()));
+						
 						// compute turn around time for single job
 						previousTAT.add((workers[i].getJobLoadTime() + workers[i].getJobTime()) - workers[i].getArrivalTime());
-
-						// 	on-time delivery?
-						if ((previousTAT.get(previousTAT.size() - 1) > (workers[i].getDueTime() - workers[i].getArrivalTime())))
-						{							
-							System.out.println("worker " + workerID + " finished job " + workers[i].getJobName() + " at time " + currentTime + ". Late by " + (currentTime - workers[i].getDueTime()));
-							missedDeadlines++;
-						}
+						System.out.println("Tat size:"+previousTAT.size());
 						
-						else
-						{
-							System.out.println("worker " + workerID + " finished job " + workers[i].getJobName() + " at time " + currentTime + ". Early by " + (currentTime - workers[i].getDueTime()));
+						
+						
+						// 	on-time delivery?
+						// compute hours until due
+						hoursTillDue = workers[i].getDueTime() - workers[i].getArrivalTime() - workers[i].getJobTime();
+						
+						if (hoursTillDue < 0)
+						{							
+							missedDeadlines++;
+							System.out.println("Job " + workers[i].getJobName() + " late by " + -hoursTillDue);
 						}
 						
 						// 	load next job if one exists, else wait
 						if (!workers[i].isEmpty())
 						{
-							workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-							System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + currentTime);
-							workers[i].putLoadSequence(workers[i].getJobName());
-							workers[i].setJobLoadTime(currentTime); // worker starts job
+							if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
+							{
+								workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
+								workers[i].putLoadSequence(workers[i].getJobName());
+								workers[i].setJobLoadTime(currentTime); // worker starts job
+								System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
+							}
 
 							// time waiting on queue
 							previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
@@ -210,14 +221,18 @@ public class FCFS
 				else if (!workers[i].isEmpty())
 				{
 					// get process from queue and dispatch to the cpu
-					workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-					System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1) + " at " + currentTime);
-					workers[i].putLoadSequence(workers[i].getJobName());
-					workers[i].setJobLoadTime(currentTime); // worker starts job
+					if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
+					{
+						workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
+						workers[i].putLoadSequence(workers[i].getJobName());
+						workers[i].setJobLoadTime(currentTime); // worker starts job
+						System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
+					}
 
 					// time waiting on queue
 					previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
-				}						
+				}
+				
 			}
 		}
 			
@@ -236,12 +251,15 @@ public class FCFS
 		{	
 			averageTurnAroundTime += previousTAT.remove(0);
 		}
+		System.out.println("averageTurnAroundTime:"+averageTurnAroundTime);
 		
 		// compute average waiting time
 		while(!previousWT.isEmpty())
 		{
 			averageWaitingTime += previousWT.remove(0);
 		}
+		System.out.println("averageWaitingTime:"+averageWaitingTime);
+
 
 		// construct statistics for results	
 		if (algorithm == 1)

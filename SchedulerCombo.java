@@ -6,6 +6,8 @@
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
+
 import javax.swing.*;
 
 // class to create combination box for algorithm selection
@@ -15,16 +17,13 @@ public class SchedulerCombo extends JPanel
 	// create objects for gui
 	private JButton processButton; // push bottom to execute sort
 	private JButton addWorkerButton;
-	private JButton removeWorkerButton;
-	private JTextField workerField; // field to store number of workers
-	private JTextField workerName;
-	private JTextField workerRank;
-	private JLabel nameLabel; // label to display purpose of text field
-	private JLabel rankLabel;
-	JFrame frameWorkers = new JFrame ("Add Workers");
+	private JButton addJobsButton;
+	private JCheckBox lateBox;
+//	private JTextField safetyBuffer;
+	JFrame frameWorkers = new JFrame ("Input Files");
 	JTextArea taWorkers = new JTextArea (20, 30);
-	
-	private JRadioButton sjf, ljf;
+	private JRadioButton sjf, ljf, edd, fdd;
+	private String info = "";
 
 	// create and define drop down combo box, fields and buttons for gui
 
@@ -33,51 +32,65 @@ public class SchedulerCombo extends JPanel
 		// create, configure button
 		processButton = new JButton ("Process");
 		processButton.setBackground (Color.white);
-		addWorkerButton = new JButton ("Add Worker");
+		addWorkerButton = new JButton ("Open Worker File");
 		addWorkerButton.setBackground (Color.white);
-		removeWorkerButton = new JButton ("Remove Worker");
-		removeWorkerButton.setBackground (Color.white);
+		addJobsButton = new JButton ("Open Job File");
+		addJobsButton.setBackground (Color.white);
 		
 		// radio buttons
 		sjf = new JRadioButton ("Shortest Job First", true);
 		sjf.setBackground(Color.lightGray);
 		ljf = new JRadioButton ("Longest Job First", true);
-		ButtonGroup group = new ButtonGroup();
 		ljf.setBackground(Color.lightGray);
-		group.add (sjf);
-		group.add (ljf);
+		edd = new JRadioButton ("Earliest Due Date", true);
+		edd.setBackground(Color.lightGray);
+		fdd = new JRadioButton ("Farthest Due Date", true);
+		fdd.setBackground(Color.lightGray);
+		ButtonGroup group = new ButtonGroup();
+		group.add(sjf);
+		group.add(ljf);
+		group.add(edd);
+		group.add(fdd);
+		
+		// check box
+		lateBox = new JCheckBox ("Reschedule late jobs");
+		lateBox.setBackground (Color.lightGray);
+		
+		// text field
+	//	safetyBuffer = new JTextField(5);
+	//	safetyBuffer.addActionListener (new TextListener());
+		
+		
 		
 		// radio listeners
 		QuoteListener listener = new QuoteListener();
 		sjf.addActionListener (listener);
 		ljf.addActionListener (listener);
-		
-		
-		// create, configure text field
-		//workerField = new JTextField(2);		
-		//label = new JLabel ("Workers");
-		workerName = new JTextField(6);
-		workerRank = new JTextField(2);
-		nameLabel = new JLabel ("Worker Name");
-		rankLabel = new JLabel ("Worker Rank"); 
+		edd.addActionListener (listener);
+		fdd.addActionListener (listener);
 
+		// check box listener
+		LateListener boxListener = new LateListener();
+		lateBox.addItemListener (boxListener);
+		
 		// setup panel and even listeners
-		setPreferredSize (new Dimension (350, 100));
+		setPreferredSize (new Dimension (350, 125));
 		setBackground (Color.lightGray);
-		add (nameLabel);
-		add (workerName);
-		add (rankLabel);
-		add (workerRank);
-		add (addWorkerButton);
-		add (removeWorkerButton);
-		add (processButton);
-		add (sjf);
-		add (ljf);
+
+		add(addWorkerButton);
+		add(addJobsButton);
+		add(processButton);
+		add(sjf);
+		add(ljf);
+		add(edd);
+		add(fdd);
+		add(lateBox);
+		//add(safetyBuffer);
 		
 		//add (processButton);
-		//workerName.addActionListener(new NameListener());
-		addWorkerButton.addActionListener(new AddButtonListener());
-		removeWorkerButton.addActionListener(new RemoveButtonListener());
+
+		addWorkerButton.addActionListener(new AddWorkerButtonListener());
+		addJobsButton.addActionListener(new AddJobsButtonListener());
 		processButton.addActionListener(new ButtonListener());
 		
 		//output window for adding workers
@@ -85,32 +98,24 @@ public class SchedulerCombo extends JPanel
 		frameWorkers.getContentPane().add(taWorkers);
 		frameWorkers.pack();
 		frameWorkers.setVisible(true);	
-
 	}
-		
-	// create action listener for the text field, no action at moment
-	private class NameListener implements ActionListener
+	/*
+	private class TextListener implements ActionListener
 	{
 		public void actionPerformed (ActionEvent event)
 		{
-			// make sure a selection was made
-			if (FCFS.algorithm != 0)
-			{
-				// extract and store worker count in global variable
-				String text = workerField.getText();
-				FCFS.workerCount = Integer.parseInt (text);
-				FCFS.wait = false;
-			}
-
+			String text = safetyBuffer.getText();
+			FCFS.CRITICAL_SAFETY_FACTOR = Double.parseDouble(text);
+			System.out.println(FCFS.CRITICAL_SAFETY_FACTOR);
 		}
-	}
+	}*/
 	
 	// represents the action listener for process button
 	private class ButtonListener implements ActionListener
 	{
 		public void actionPerformed (ActionEvent event)
 		{
-			if (!FCFS.workerNames.isEmpty())
+			if ((FCFS.workerFile != null) && (FCFS.jobFile != null))
 			{
 				FCFS.wait = false;
 			}
@@ -118,82 +123,58 @@ public class SchedulerCombo extends JPanel
 	}	
 	
 	// represents the action listener for add worker button
-	private class AddButtonListener implements ActionListener
+	private class AddWorkerButtonListener implements ActionListener
 	{
 		public void actionPerformed (ActionEvent event)
 		{
-			String info = "";
-			// add worker name from gui
-			String name;
-			String rank;	
-	
-			if ((!workerName.getText().isEmpty()) && (!workerRank.getText().isEmpty()))
-			{
-				name = workerName.getText();
-				rank = workerRank.getText();
-				System.out.println("in loop");
-				FCFS.workerNames.add(name);
-				FCFS.workerRanks.add(Integer.parseInt(rank));
-			}	
+			// open file
+			JFileChooser chooser = new JFileChooser();
+			int status = chooser.showOpenDialog (null);
+			File file = chooser.getSelectedFile();
 
-			// create output string
-			if (!FCFS.workerNames.isEmpty())
+			// error?
+			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				for (int i = 0; i < FCFS.workerNames.size();i++)
-				{
-					info += "Worker:"+ FCFS.workerNames.get(i) + " Rank:" + FCFS.workerRanks.get(i) + "\n"; 
-				}
+				taWorkers.setText ("No Worker File Chosen");
+			}
 			
-			
-				taWorkers.setText(info);
-				// taWorkers.setText("added " + FCFS.workerNames.get(FCFS.workerNames.size()-1) + " rank " + FCFS.workerRanks.get(FCFS.workerNames.size()-1));
-				System.out.println("added " + FCFS.workerNames.get(FCFS.workerNames.size()-1) + " rank " + FCFS.workerRanks.get(FCFS.workerNames.size()-1));
-				for (int i = 0; i < FCFS.workerNames.size(); i++)
-				{
-					System.out.println("worker:" + FCFS.workerNames.get(i) + " rank:" + FCFS.workerRanks.get(i));
-				}
+			else 
+			{
+				FCFS.workerFile = file.getName();
+				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
+				taWorkers.setText (info);
 			}
 		}
 	}
 	
-	// represents the action listener for add worker button
-	private class RemoveButtonListener implements ActionListener
+	// represents the action listener for add jobs button
+	private class AddJobsButtonListener implements ActionListener
 	{
 		public void actionPerformed (ActionEvent event)
 		{
-			String info = "";
+			// open file
+			JFileChooser chooser = new JFileChooser();
+			int status = chooser.showOpenDialog (null);
+			File file = chooser.getSelectedFile();
 
-			if (!FCFS.workerNames.isEmpty())
+			// error?
+			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				String name = FCFS.workerNames.get(FCFS.workerNames.size()-1);
-				FCFS.workerNames.remove(FCFS.workerNames.size()-1);
-				
-				Integer rank = FCFS.workerRanks.get(FCFS.workerRanks.size()-1);
-				FCFS.workerRanks.remove(FCFS.workerRanks.size()-1);
-				
-				// create output string
-				for (int i = 0; i < FCFS.workerNames.size();i++)
-				{
-					info += "Worker:"+ FCFS.workerNames.get(i) + " Rank:" + FCFS.workerRanks.get(i) + "\n"; 
-				}
-				
-				taWorkers.setText(info);
-	//			taWorkers.setText("Removed " + name);
-				System.out.println("Removed " + name);
+				taWorkers.setText ("No Jobs File Chosen");
 			}
-			for (int i = 0; i < FCFS.workerNames.size(); i++)
+			
+			else 
 			{
-				System.out.println("worker:" + FCFS.workerNames.get(i) + " rank:" + FCFS.workerRanks.get(i));
+				FCFS.jobFile = file.getName();
+				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
+				taWorkers.setText (info);
 			}
 		}
 	}
 	
+	// radio button control
 	private class QuoteListener implements ActionListener
 	{
-		//-----------------------------------------------------------------
-		// Sets the text of the label depending on which radio
-		// button was pressed.
-		//-----------------------------------------------------------------
 		public void actionPerformed (ActionEvent event)
 		{
 			Object source = event.getSource();
@@ -201,15 +182,41 @@ public class SchedulerCombo extends JPanel
 			// do nothing, flag already set in FCFS
 			if (source == sjf)
 			{
-				FCFS.sjfKey = 1;
-				System.out.println(FCFS.sjfKey);
+				FCFS.algorithm = 1;
 			}
 		
 			// flip flag in FCFS
 			else if (source == ljf)
 			{
-				FCFS.sjfKey = -1;
-				System.out.println(FCFS.sjfKey);
+				FCFS.algorithm = 2;
+			}
+			
+			else if (source == edd)
+			{
+				FCFS.algorithm = 3;
+			}
+			
+			else if (source == fdd)
+			{
+				FCFS.algorithm = 4;
+			}
+		}
+	}
+	private class LateListener implements ItemListener
+	{
+		//-----------------------------------------------------------------
+		// Updates the style of the label font style.
+		//-----------------------------------------------------------------
+		public void itemStateChanged (ItemEvent event)
+		{
+			if (lateBox.isSelected())
+			{
+				FCFS.lateAvoidance = true;
+			}
+			
+			else
+			{
+				FCFS.lateAvoidance = false;
 			}
 		}
 	}

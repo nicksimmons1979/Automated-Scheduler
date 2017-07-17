@@ -9,7 +9,7 @@ public class ProcessControlBlock
 {
 	// job particulars
 	String jobName;
-	float arrivalTime, dueTime, jobTime, priority;
+	float arrivalTime, dueTime, jobTime, priority, finishedTime;
 	boolean kitted;
 	int jobRank;
 	
@@ -23,6 +23,16 @@ public class ProcessControlBlock
 		this.jobTime = priority;
 		this.kitted = kitted;
 		this.jobRank = jobRank;
+	}
+	
+	public void setFinishedTime(float finishedTime)
+	{
+		this.finishedTime = finishedTime;
+	}
+	
+	public float getFinishedTime()
+	{
+		return finishedTime;
 	}
 	
 	public int getJobRank()

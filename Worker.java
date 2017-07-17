@@ -11,7 +11,9 @@ public class Worker
 	private int jobsLoaded;
 	private double jobLoadTime;
 	public List<String> loadSequence = new ArrayList<String>();
-
+	private boolean busy;
+	private double idleTime;
+	
 	public Worker(String workerName, int workerRank)
 	{
 		this.workerName = workerName;
@@ -20,8 +22,21 @@ public class Worker
 		this.job = null;
 		this.jobsLoaded = 0;
 		this.jobLoadTime = 0;
+		this.busy = false;
+		this.idleTime = 0;
+	}
+
+
+	
+	public void setIdleTime(double idleTime)
+	{
+		this.idleTime += idleTime;
 	}
 	
+	public double getIdleTime()
+	{
+		return idleTime;
+	}
 	public void putLoadSequence(String name)
 	{
 		loadSequence.add(name);
@@ -132,5 +147,13 @@ public class Worker
 		return workerQ;
 	}
 	
-
+	public void setBusy(boolean busy)
+	{
+		this.busy = busy;
+	}
+	
+	public boolean isBusy()
+	{
+		return busy;
+	}
 }

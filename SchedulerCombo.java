@@ -17,7 +17,9 @@ public class SchedulerCombo extends JPanel
 	// create objects for gui
 	private JButton processButton; // push bottom to execute sort
 	private JButton addWorkerButton;
-	private JButton addJobsButton;;
+	private JButton addJobsButton;
+	private JCheckBox lateBox;
+//	private JTextField safetyBuffer;
 	JFrame frameWorkers = new JFrame ("Input Files");
 	JTextArea taWorkers = new JTextArea (20, 30);
 	private JRadioButton sjf, ljf, edd, fdd;
@@ -50,6 +52,16 @@ public class SchedulerCombo extends JPanel
 		group.add(edd);
 		group.add(fdd);
 		
+		// check box
+		lateBox = new JCheckBox ("Reschedule late jobs");
+		lateBox.setBackground (Color.lightGray);
+		
+		// text field
+	//	safetyBuffer = new JTextField(5);
+	//	safetyBuffer.addActionListener (new TextListener());
+		
+		
+		
 		// radio listeners
 		QuoteListener listener = new QuoteListener();
 		sjf.addActionListener (listener);
@@ -57,8 +69,12 @@ public class SchedulerCombo extends JPanel
 		edd.addActionListener (listener);
 		fdd.addActionListener (listener);
 
+		// check box listener
+		LateListener boxListener = new LateListener();
+		lateBox.addItemListener (boxListener);
+		
 		// setup panel and even listeners
-		setPreferredSize (new Dimension (350, 100));
+		setPreferredSize (new Dimension (350, 125));
 		setBackground (Color.lightGray);
 
 		add(addWorkerButton);
@@ -68,6 +84,8 @@ public class SchedulerCombo extends JPanel
 		add(ljf);
 		add(edd);
 		add(fdd);
+		add(lateBox);
+		//add(safetyBuffer);
 		
 		//add (processButton);
 
@@ -81,6 +99,16 @@ public class SchedulerCombo extends JPanel
 		frameWorkers.pack();
 		frameWorkers.setVisible(true);	
 	}
+	/*
+	private class TextListener implements ActionListener
+	{
+		public void actionPerformed (ActionEvent event)
+		{
+			String text = safetyBuffer.getText();
+			FCFS.CRITICAL_SAFETY_FACTOR = Double.parseDouble(text);
+			System.out.println(FCFS.CRITICAL_SAFETY_FACTOR);
+		}
+	}*/
 	
 	// represents the action listener for process button
 	private class ButtonListener implements ActionListener
@@ -171,6 +199,24 @@ public class SchedulerCombo extends JPanel
 			else if (source == fdd)
 			{
 				FCFS.algorithm = 4;
+			}
+		}
+	}
+	private class LateListener implements ItemListener
+	{
+		//-----------------------------------------------------------------
+		// Updates the style of the label font style.
+		//-----------------------------------------------------------------
+		public void itemStateChanged (ItemEvent event)
+		{
+			if (lateBox.isSelected())
+			{
+				FCFS.lateAvoidance = true;
+			}
+			
+			else
+			{
+				FCFS.lateAvoidance = false;
 			}
 		}
 	}

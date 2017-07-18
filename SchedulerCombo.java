@@ -7,8 +7,8 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
-
 import javax.swing.*;
+import javax.swing.event.*;
 
 // class to create combination box for algorithm selection
 @SuppressWarnings("serial")
@@ -23,6 +23,7 @@ public class SchedulerCombo extends JPanel
 	JFrame frameWorkers = new JFrame ("Input Files");
 	JTextArea taWorkers = new JTextArea (20, 30);
 	private JRadioButton sjf, ljf, edd, fdd;
+	private JSlider crSlider;
 	private String info = "";
 
 	// create and define drop down combo box, fields and buttons for gui
@@ -53,14 +54,21 @@ public class SchedulerCombo extends JPanel
 		group.add(fdd);
 		
 		// check box
-		lateBox = new JCheckBox ("Reschedule late jobs");
+		lateBox = new JCheckBox ("Use safety buffer to reschedule");
 		lateBox.setBackground (Color.lightGray);
 		
-		// text field
-	//	safetyBuffer = new JTextField(5);
-	//	safetyBuffer.addActionListener (new TextListener());
+		// slider for critical ratio
+		crSlider = new JSlider (JSlider.HORIZONTAL, 0, 5, 2);
+		crSlider.setMajorTickSpacing (1);
+		crSlider.setMinorTickSpacing (0);
+		crSlider.setPaintTicks (true);
+		crSlider.setPaintLabels (true);
+		crSlider.setAlignmentX (Component.LEFT_ALIGNMENT);
+		crSlider.setBackground(Color.lightGray);
 		
-		
+		// slider listener
+		SliderListener sliderListener = new SliderListener();
+		crSlider.addChangeListener (sliderListener);
 		
 		// radio listeners
 		QuoteListener listener = new QuoteListener();
@@ -74,7 +82,7 @@ public class SchedulerCombo extends JPanel
 		lateBox.addItemListener (boxListener);
 		
 		// setup panel and even listeners
-		setPreferredSize (new Dimension (350, 125));
+		setPreferredSize (new Dimension (350, 175));
 		setBackground (Color.lightGray);
 
 		add(addWorkerButton);
@@ -85,7 +93,7 @@ public class SchedulerCombo extends JPanel
 		add(edd);
 		add(fdd);
 		add(lateBox);
-		//add(safetyBuffer);
+		add(crSlider);
 		
 		//add (processButton);
 
@@ -99,16 +107,14 @@ public class SchedulerCombo extends JPanel
 		frameWorkers.pack();
 		frameWorkers.setVisible(true);	
 	}
-	/*
-	private class TextListener implements ActionListener
+	
+	private class SliderListener implements ChangeListener
 	{
-		public void actionPerformed (ActionEvent event)
+		public void stateChanged (ChangeEvent event)
 		{
-			String text = safetyBuffer.getText();
-			FCFS.CRITICAL_SAFETY_FACTOR = Double.parseDouble(text);
-			System.out.println(FCFS.CRITICAL_SAFETY_FACTOR);
+			FCFS.criticalSafetyFactory = (double)crSlider.getValue();
 		}
-	}*/
+	}
 	
 	// represents the action listener for process button
 	private class ButtonListener implements ActionListener

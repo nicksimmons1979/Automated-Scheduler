@@ -23,6 +23,7 @@ public class CsvToJavaObject
 	private List<ProcessControlBlock> jobList = new ArrayList<ProcessControlBlock>();
 	private int itemsLoaded = 0;
 	private int workersLoaded = 0;
+	private int itemsFromFile = 0;
 	
 	// load jobs csv file to object
 	public void convertJobsCsvToJava(String csvFileToRead)
@@ -46,14 +47,14 @@ public class CsvToJavaObject
 				String[] jobs = line.split(splitBy);
 
 				// create job object to store values, each index represents adjacent cell in csv
-				ProcessControlBlock jobObject = new ProcessControlBlock(jobs[0],Float.parseFloat((jobs[1])),Float.parseFloat(jobs[2]),Float.parseFloat(jobs[3]), Float.parseFloat(jobs[4]), Boolean.parseBoolean(jobs[5]), Integer.parseInt(jobs[6]));
+				ProcessControlBlock jobObject = new ProcessControlBlock(jobs[0],Double.parseDouble((jobs[1])),Double.parseDouble(jobs[2]),Double.parseDouble(jobs[3]), Double.parseDouble(jobs[4]), Boolean.parseBoolean(jobs[5]), Integer.parseInt(jobs[6]));
 
 				// add values from csv to job object
 				jobObject.setJobName(jobs[0]);
-				jobObject.setArrivalTime(Float.parseFloat((jobs[1])));
-				jobObject.setDueTime(Float.parseFloat(jobs[2]));
-				jobObject.setJobTime(Float.parseFloat(jobs[3]));
-				jobObject.setPriority(Float.parseFloat(jobs[4]));
+				jobObject.setArrivalTime(Double.parseDouble((jobs[1])));
+				jobObject.setDueTime(Double.parseDouble(jobs[2]));
+				jobObject.setJobTime(Double.parseDouble(jobs[3]));
+				jobObject.setPriority(Double.parseDouble(jobs[4]));
 				jobObject.setKitted(Boolean.parseBoolean(jobs[5]));
 				jobObject.setJobRank(Integer.parseInt(jobs[6]));
 
@@ -63,6 +64,7 @@ public class CsvToJavaObject
 					// put job list master queue
 					jobList.add(jobObject);
 					itemsLoaded++;
+					itemsFromFile++;
 				}
 			}
 			
@@ -136,6 +138,11 @@ public class CsvToJavaObject
 				}
 			}
 		}
+	}
+	
+	public int getItemsFromFile()
+	{
+		return itemsFromFile;
 	}
 	
 	// load worker csv to global variable
@@ -266,14 +273,14 @@ public class CsvToJavaObject
 			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
 			{   
 				System.out.println("call algo:"+ FCFS.algorithm);
-				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				int result =  new Double(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
 				if (result == 0)
 				{
-					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+					result = new Double(job1.getPriority()).compareTo(job2.getPriority());
 				}
 				if (result == 0)
 				{
-					result = new Float(job1.getJobTime()).compareTo(job2.getJobTime());
+					result = new Double(job1.getJobTime()).compareTo(job2.getJobTime());
 				}
 				return result;
 			}        
@@ -291,14 +298,14 @@ public class CsvToJavaObject
 			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
 			{  
 				System.out.println("call algo:"+ FCFS.algorithm);
-				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				int result =  new Double(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
 				if (result == 0)
 				{
-					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+					result = new Double(job1.getPriority()).compareTo(job2.getPriority());
 				}
 				if (result == 0)
 				{
-					result = new Float(job2.getJobTime()).compareTo(job1.getJobTime());
+					result = new Double(job2.getJobTime()).compareTo(job1.getJobTime());
 				}
 				return result;
 			}        
@@ -316,14 +323,14 @@ public class CsvToJavaObject
 			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
 			{   
 				System.out.println("call algo:"+ FCFS.algorithm);
-				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
+				int result =  new Double(job1.getArrivalTime()).compareTo(job2.getArrivalTime());
 				if (result == 0)
 				{
-					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+					result = new Double(job1.getPriority()).compareTo(job2.getPriority());
 				}
 				if (result == 0)
 				{
-					result = new Float(job1.getDueTime()).compareTo(job2.getDueTime());
+					result = new Double(job1.getDueTime()).compareTo(job2.getDueTime());
 				}
 				return result;
 			}        
@@ -341,13 +348,13 @@ public class CsvToJavaObject
 			public int compare(ProcessControlBlock job1, ProcessControlBlock job2)
 			{   
 				System.out.println("call algo:"+ FCFS.algorithm);
-				int result =  new Float(job1.getArrivalTime()).compareTo(job2.getArrivalTime());				if (result == 0)
+				int result =  new Double(job1.getArrivalTime()).compareTo(job2.getArrivalTime());				if (result == 0)
 				{
-					result = new Float(job1.getPriority()).compareTo(job2.getPriority());
+					result = new Double(job1.getPriority()).compareTo(job2.getPriority());
 				}
 				if (result == 0)
 				{
-					result = new Float(job2.getDueTime()).compareTo(job1.getDueTime());
+					result = new Double(job2.getDueTime()).compareTo(job1.getDueTime());
 				}
 				return result;
 			}        

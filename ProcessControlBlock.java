@@ -9,12 +9,12 @@ public class ProcessControlBlock
 {
 	// job particulars
 	String jobName;
-	float arrivalTime, dueTime, jobTime, priority, finishedTime;
+	private double arrivalTime, dueTime, jobTime, priority, startTime, finishedTime;
 	boolean kitted;
 	int jobRank;
 	
 	// create a job block object
-	public ProcessControlBlock(String jobName, float arrivalTime, float dueTime, float jobTime, float priority, boolean kitted, int jobRank)
+	public ProcessControlBlock(String jobName, double arrivalTime, double dueTime, double jobTime, double priority, boolean kitted, int jobRank)
 	{
 		this.jobName = jobName;
 		this.arrivalTime = arrivalTime;
@@ -25,12 +25,25 @@ public class ProcessControlBlock
 		this.jobRank = jobRank;
 	}
 	
-	public void setFinishedTime(float finishedTime)
+	
+	
+	public void setStartTime(double startTime)
+	{
+		this.startTime = startTime;
+	}
+	
+	public double getStartTime()
+	{
+		return startTime;
+	}
+	
+	
+	public void setFinishedTime(double finishedTime)
 	{
 		this.finishedTime = finishedTime;
 	}
 	
-	public float getFinishedTime()
+	public double getFinishedTime()
 	{
 		return finishedTime;
 	}
@@ -52,43 +65,43 @@ public class ProcessControlBlock
 	}
 	
 	// return job arrival time
-	public float getArrivalTime()
+	public double getArrivalTime()
 	{
 		return arrivalTime;
 	}
 	
 	// return job due time
-	public float getDueTime()
+	public double getDueTime()
 	{
 		return dueTime;
 	}
 	
 	// return job total time required
-	public float getJobTime()
+	public double getJobTime()
 	{
 		return jobTime;
 	}
 	
 	// return priority level of job
-	public float getPriority()
+	public double getPriority()
 	{
 		return priority;
 	}
 	
 	// set job arrival time
-	public void setArrivalTime(float arrivalTime)
+	public void setArrivalTime(double arrivalTime)
 	{
 		this.arrivalTime = arrivalTime;
 	}
 	
 	// set job total time required
-	public void setJobTime(float jobTime)
+	public void setJobTime(double jobTime)
 	{
 		this.jobTime = jobTime;
 	}
 	
 	// set job due time
-	public void setDueTime(float dueTime)
+	public void setDueTime(double dueTime)
 	{
 		this.jobTime = dueTime;
 	}
@@ -100,7 +113,7 @@ public class ProcessControlBlock
 	}
 	
 	// set priority level of job
-	public void setPriority(float priority)
+	public void setPriority(double priority)
 	{
 		this.priority = priority;
 	}

@@ -17,41 +17,40 @@ public class FCFS
 	static int workerCount;
 	static boolean wait = true;
 	static int algorithm = 1;
-	static List<String> workerNames = new ArrayList<String>();
-	static List<Integer> workerRanks = new ArrayList<Integer>();
 	static String workerFile = null;
 	static String jobFile = null;
 	static boolean lateAvoidance = false;
-	static double CRITICAL_SAFETY_FACTOR = 1.5;
+	static double criticalSafetyFactory = 2.0;
+	static List<String> workerNames = new ArrayList<String>();
+	static List<Integer> workerRanks = new ArrayList<Integer>();
 
 	public static void main(String args[]) throws IOException
 	{	
 		// constants defining simulation characteristics
-		final double SIMULATION_TIME = 300; // hrs
+		final double SIMULATION_TIME = 3000; // hrs
 		final double SIMULATION_INCREMENT = 0.01;
-		final double CRITICAL_SAFETY_FACTOR = 1.5;
 		DecimalFormat fmt = new DecimalFormat("0.##"); // statistics output format
 		
 		// create queues for holding jobs on arrival and worker queues
 		ProcessControlBlock pcb = null; // job storage for file->queue
 				
 		// for computations of statistics
-		List<Double> previousTAT = new ArrayList<Double>();
-		List<Double> previousWT = new ArrayList<Double>();
 		List<ProcessControlBlock> unassignedJobs = new ArrayList<ProcessControlBlock>();
+		List<ProcessControlBlock> missedJobs = new ArrayList<ProcessControlBlock>();
+		List<ProcessControlBlock> completedJobs = new ArrayList<ProcessControlBlock>();
 		double averageTurnAroundTime = 0;		
 		double averageWaitingTime = 0;
-		double hoursTillDue = 0;
 
-		int workerID = 0;
-		int missedDeadlines = 0;				
-		String info = "";
+		// worker details
+
 		int lastAlternateWorker = 0;
+		int workerID = 0;				
+		String info = "";
 		
 		// Create frame and dialog to open pending job list
 		JFrame frameScheduler = new JFrame ("Results");
 		frameScheduler.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
-		JTextArea ta = new JTextArea (20, 30);
+		JTextArea ta = new JTextArea (50, 30);
 		
 		// Create frame to select scheduler and employees
 		JFrame frame = new JFrame ("Automated Scheduler v1.0");
@@ -88,7 +87,11 @@ public class FCFS
 		{
 			workers[i] = new Worker(workerNames.remove(0), workerRanks.remove(0));		
 		}
-			
+
+		// ****************************************************************************
+		//  scheduler section 	
+		// ****************************************************************************
+		
        	// create ordered worker queues from jobList
        	while (!jobList.isEmpty())
        	{					
@@ -157,15 +160,17 @@ public class FCFS
 					
        			if (assigned == false)
        			{
-       				System.out.println(pcb.getJobName() + " ditched, failure to assign");
-       				info += "Failure to assign " + pcb.getJobName() + " no capable worker\n"; 
+       				System.out.println(pcb.getJobName() + " ditched, failure to assign"); 
        				unassignedJobs.add(pcb);
        				pcb = null; // ditch job for now
        			}
        		} 		
        	}
  
-		// process queues
+       	// ****************************************************************************      	
+       	// simulator section 
+       	// ****************************************************************************
+       	
 		for (double currentTime = 0; currentTime < SIMULATION_TIME; currentTime = currentTime + SIMULATION_INCREMENT)
 		{
 			// check queue for critical ratio of CRITICAL_SAFETY_FACTOR (hours left before due / job time)
@@ -176,173 +181,184 @@ public class FCFS
 					for (int j = 0; j < workers[i].getWorkerQ().size(); j++)
 					{
 						double criticalRatio = ((workers[i].getWorkerQ().get(j).getDueTime() - currentTime) / workers[i].getWorkerQ().get(j).getJobTime());
-					
-						if (criticalRatio < CRITICAL_SAFETY_FACTOR)
+						
+						if (criticalRatio < criticalSafetyFactory)
 						{
 							// take some action, push job to front of queue
-							System.out.println("job " + workers[i].getWorkerQ().get(j).getJobName() + " is going to be late.");
-							System.out.println("PUSH!");
+							System.out.println("PUSH! job " + workers[i].getWorkerQ().get(j).getJobName() + " is going to be late.");
 							ProcessControlBlock tempBlock;
 							tempBlock = workers[i].getWorkerQ().remove(j);
 							workers[i].getWorkerQ().add(0, tempBlock);
 						}
 					}
 				}
-			}
+			}					
 			
 			// process all workers simultaneously
 			for (int i = 0; i < workerCount; i++)
-			{				
-				// if there is a job running on worker
-				if (workers[i].getJob() != null)
+			{
+				// check if the worker is busy or idle
+				// worker is not busy
+				if (!workers[i].isBusy())
 				{
-					// if job on worker is finished
-					if ((workers[i].getJobLoadTime() + workers[i].getJobTime()) <= currentTime)
+					// load a job to the worker
+					// is there a job for the worker
+					if (!workers[i].isEmpty())
 					{
+						// is it time to start the job?
+						if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
+						{
+							// load job from worker queue to worker
+							workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
+							// store job start time
+							workers[i].setStartTime(currentTime);
+							// store job name for load list
+							workers[i].loadSequence.add(workers[i].getJobName());
+							// set worker to busy
+							workers[i].setBusy(true);
+							System.out.println("Worker " + workers[i].getWorkerName() + " started job " + workers[i].getJobName() + " at " + currentTime);
+						}
+					}
+
+					// there is no job for worker, worker spins
+					else
+					{
+					}
+				}
+				
+				// worker is busy
+				else
+				{
+					// is the job finished?
+					if (currentTime >= workers[i].getStartTime() + workers[i].getJobTime())
+					{
+						// record finished details
+						workers[i].setFinishedTime(currentTime);
+						
+						// is the job late
+						if (workers[i].getFinishedTime() > workers[i].getDueTime())
+						{
+							System.out.println(workers[i].getJobName() + " finished at " + workers[i].getFinishedTime());
+							System.out.println(workers[i].getJobName() + " is late by " + (workers[i].getFinishedTime() - workers[i].getDueTime()));
+							missedJobs.add((ProcessControlBlock)workers[i].getJob());
+						}
+						
+						// job is on-time
+						else
+						{
+							System.out.println(workers[i].getJobName() + " finished at " + workers[i].getFinishedTime());
+							System.out.println(workers[i].getJobName() + " is early by " + (workers[i].getFinishedTime() - workers[i].getDueTime()));
+						}
+						
+						// worker is now idle
 						workers[i].setBusy(false);
-						previousTAT.add((workers[i].getJobLoadTime() + workers[i].getJobTime()) - workers[i].getArrivalTime());
-
-						// only compute the TAT when the worker is not idle 
-						if (workers[i].isBusy())
-						{
-							// compute turn around time for single job
-							System.out.println("Tat size:"+previousTAT.size());
-						}
-						
-						else
-						{
-							workers[i].setIdleTime(SIMULATION_INCREMENT);
-						}
-						
-						// 	load next job if one exists, else wait
-						if (!workers[i].isEmpty())
-						{
-							if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
-							{
-								workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-								workers[i].putLoadSequence(workers[i].getJobName());
-								workers[i].setJobLoadTime(currentTime); // worker starts job
-								workers[i].setBusy(true);
-								System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
-
-								// is this job too late?
-								hoursTillDue = workers[i].getDueTime() - workers[i].getJobLoadTime() - workers[i].getJobTime();
-
-								if (hoursTillDue < 0)
-								{
-									missedDeadlines++;
-									System.out.println("Job " + workers[i].getJobName() + " late by " + -hoursTillDue);
-									info += ("\nJob " + workers[i].getJobName() + " late by " + fmt.format(-hoursTillDue));
-								}
-							}
-
-							// time waiting on queue
-							previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
-						}
-					
-						// worker idle, queue is empty
-						else
-						{
-							workers[i].setJob(null);
-						}
+						// store job to finished queue
+						completedJobs.add((ProcessControlBlock)workers[i].getJob());							
 					}
 				}
-				
-				// if the worker is idle
-				else if (!workers[i].isEmpty())
-				{
-					// get process from queue and dispatch to the cpu
-					if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
-					{
-						workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-						workers[i].putLoadSequence(workers[i].getJobName());
-						workers[i].setJobLoadTime(currentTime); // worker starts job
-						workers[i].setBusy(true);
-
-						System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
-					}
-
-					// time waiting on queue
-					previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
-				}
-				
 			}
-		}
+		}      
 			
 		// ****************************************************************************
 		// Compute and display results
 		// ****************************************************************************
+		
+		// compute idle times
+		for (int i = 0; i < workerCount; i++)
+		{
+			// time last job finished - workers total load
+			if (workers[i] != null)
+			{
+				workers[i].setIdleTime(workers[i].getFinishedTime() - workers[i].getWorkerLoad());
+			}
+		}		
 		
 		// compute average turn around time
 		int totalJobs = 0;
 		for (int i = 0; i < workerCount; i++)
 		{
 			totalJobs += workers[i].getJobsLoaded();
-		}
-
-		while(!previousTAT.isEmpty())
-		{	
-			averageTurnAroundTime += previousTAT.remove(0);
-		}
+		}		
 		
-		for (int i = 0; i < workerCount; i++)
+		// compute statistics for TAT, WT
+		for (int i = 0; i < completedJobs.size(); i++)
 		{
-		//	averageTurnAroundTime -= workers[i].getIdleTime();
-		}
-		
-		// compute average waiting time
-		while(!previousWT.isEmpty())
-		{
-			averageWaitingTime += previousWT.remove(0);
-		}
-		
-		for (int i = 0; i < workerCount; i++)
-		{
-		//	averageWaitingTime -= workers[i].getIdleTime();
-		}
+			averageTurnAroundTime += (completedJobs.get(i).getFinishedTime() - completedJobs.get(i).getArrivalTime());
+	//		System.out.println(completedJobs.get(i).getJobName() + " TAT:" + (completedJobs.get(i).getFinishedTime() - completedJobs.get(i).getArrivalTime()));
+			averageWaitingTime += (completedJobs.get(i).getStartTime() - completedJobs.get(i).getArrivalTime());
+	//		System.out.println(completedJobs.get(i).getJobName() + " WT:" + (completedJobs.get(i).getStartTime() - completedJobs.get(i).getArrivalTime()));
 
-
-		info += "\n";
+		}
 		
-		// construct statistics for results	
+		averageTurnAroundTime /= totalJobs;
+		averageWaitingTime /= totalJobs;
+		
+		// construct output string for results	
 		if (algorithm == 1)
 		{
-			info += ("\nShortest Job First");
+			info += ("Shortest Job First");
 		}
 		
 		else if (algorithm == 2)
 		{
-			info += ("\nLongest Job First");
+			info += ("Longest Job First");
 		}
 		
 		else if (algorithm == 3)
 		{
-			info += ("\nEarliest Due Date");
+			info += ("Earliest Due Date");
 		}
 
 		else if (algorithm == 4)
 		{
-			info += ("\nFarthest Due Date");
+			info += ("Farthest Due Date");
 		}
 		
-		info += ("\nJobs completed:" + totalJobs);
+		info += "\nAuto reschedule:" + lateAvoidance;
 		
-		info += ("\nAverage TAT:" + fmt.format(averageTurnAroundTime / totalJobs ) + " hours");
-		info += ("\nAverage WT:" + fmt.format(averageWaitingTime / totalJobs ) + " hours");	
-		info += ("\nDeadlines missed:" + missedDeadlines);
+		if (lateAvoidance)
+		{
+			info += "\nSafety Buffer:" + criticalSafetyFactory + "x";
+		}
+		
+		info += ("\nJobs loaded to from file:" + jobList.getItemsFromFile());
+		info += ("\nJobs loaded to workers:" + totalJobs);
+		info += ("\nJobs completed:" + (completedJobs.size() - unassignedJobs.size()));
+		info += ("\nDeadlines missed:" + missedJobs.size());
+		info += ("\nJobs unassigned:" + unassignedJobs.size());
+		
+		info += ("\n\nAverage TAT:" + fmt.format(averageTurnAroundTime) + " hours");
+		info += ("\nAverage WT:" + fmt.format(averageWaitingTime) + " hours");	
+
+		info += "\n";
+		
+		info += "\nTotal workers:" + workerCount;
 		
 		for (int i = 0; i < workerCount; i++)
 		{
 			info += ("\n" + (workers[i].getWorkerName()) +" queue size:" + fmt.format(workers[i].getWorkerLoad()) + " hours");
-			
 		}
-		
+
+		info += "\n";
+
 		for (int i = 0; i < workerCount; i++)
 		{
 			info += ("\n" + (workers[i].getWorkerName()) +" idle for:" + fmt.format(workers[i].getIdleTime()) + " hours");
-			
 		}
-
+		
+		info += "\n";
+		
+		for (int i = 0; i < missedJobs.size(); i++)
+		{
+			info += ("\n" + missedJobs.get(i).getJobName() + " late by " + (missedJobs.get(i).getFinishedTime() - missedJobs.get(i).getDueTime()));
+		}
+		
+		info += "\n";
+		
+		for (int i = 0; i < unassignedJobs.size(); i++)
+		{
+			info += ("\n" + unassignedJobs.get(i).getJobName() + " unassigned, no capable worker");
+		}
 		
 		// display results frame
 		frameScheduler.getContentPane().add(ta);

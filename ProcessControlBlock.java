@@ -8,10 +8,11 @@
 public class ProcessControlBlock
 {
 	// job particulars
-	String jobName;
+	private String jobName;
+	private String workerName = "";
 	private double arrivalTime, dueTime, jobTime, priority, startTime, finishedTime;
-	boolean kitted;
-	int jobRank;
+	private boolean kitted;
+	private int jobRank;
 	
 	// create a job block object
 	public ProcessControlBlock(String jobName, double arrivalTime, double dueTime, double jobTime, double priority, boolean kitted, int jobRank)
@@ -25,7 +26,15 @@ public class ProcessControlBlock
 		this.jobRank = jobRank;
 	}
 	
+	public void setWorkerName(String workerName)
+	{
+		this.workerName = workerName;
+	}
 	
+	public String getWorkerName()
+	{
+		return workerName;
+	}
 	
 	public void setStartTime(double startTime)
 	{

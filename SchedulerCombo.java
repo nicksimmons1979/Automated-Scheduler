@@ -19,17 +19,21 @@ public class SchedulerCombo extends JPanel
 	private JButton addWorkerButton;
 	private JButton addJobsButton;
 	private JCheckBox lateBox;
-//	private JTextField safetyBuffer;
-	JFrame frameWorkers = new JFrame ("Input Files");
-	JTextArea taWorkers = new JTextArea (20, 30);
+	private JTextField workerFile;
+	private JTextField jobFile;
 	private JRadioButton sjf, ljf, edd, fdd;
 	private JSlider crSlider;
-	private String info = "";
 
 	// create and define drop down combo box, fields and buttons for gui
 
 	public SchedulerCombo()
 	{			
+		// create, configure text fields
+		workerFile = new JTextField(30);
+		workerFile.setBackground(Color.white);
+		jobFile = new JTextField(30);
+		jobFile.setBackground(Color.white);
+
 		// create, configure button
 		processButton = new JButton ("Process");
 		processButton.setBackground (Color.white);
@@ -58,7 +62,7 @@ public class SchedulerCombo extends JPanel
 		lateBox.setBackground (Color.lightGray);
 		
 		// slider for critical ratio
-		crSlider = new JSlider (JSlider.HORIZONTAL, 0, 5, 2);
+		crSlider = new JSlider (JSlider.HORIZONTAL, 1, 5, 2);
 		crSlider.setMajorTickSpacing (1);
 		crSlider.setMinorTickSpacing (0);
 		crSlider.setPaintTicks (true);
@@ -82,7 +86,7 @@ public class SchedulerCombo extends JPanel
 		lateBox.addItemListener (boxListener);
 		
 		// setup panel and even listeners
-		setPreferredSize (new Dimension (350, 175));
+		setPreferredSize (new Dimension (350, 225));
 		setBackground (Color.lightGray);
 
 		add(addWorkerButton);
@@ -94,18 +98,12 @@ public class SchedulerCombo extends JPanel
 		add(fdd);
 		add(lateBox);
 		add(crSlider);
-		
-		//add (processButton);
+		add(workerFile);
+		add(jobFile);
 
 		addWorkerButton.addActionListener(new AddWorkerButtonListener());
 		addJobsButton.addActionListener(new AddJobsButtonListener());
 		processButton.addActionListener(new ButtonListener());
-		
-		//output window for adding workers
-		frameWorkers.setDefaultCloseOperation (JFrame.HIDE_ON_CLOSE);
-		frameWorkers.getContentPane().add(taWorkers);
-		frameWorkers.pack();
-		frameWorkers.setVisible(true);	
 	}
 	
 	private class SliderListener implements ChangeListener
@@ -141,14 +139,13 @@ public class SchedulerCombo extends JPanel
 			// error?
 			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				taWorkers.setText ("No Worker File Chosen");
+				workerFile.setText ("No Worker File Chosen");
 			}
 			
 			else 
 			{
 				FCFS.workerFile = file.getName();
-				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
-				taWorkers.setText (info);
+				workerFile.setText("Worker File:" + FCFS.workerFile);
 			}
 		}
 	}
@@ -166,14 +163,13 @@ public class SchedulerCombo extends JPanel
 			// error?
 			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				taWorkers.setText ("No Jobs File Chosen");
+				jobFile.setText ("No Jobs File Chosen");
 			}
 			
 			else 
 			{
 				FCFS.jobFile = file.getName();
-				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
-				taWorkers.setText (info);
+				jobFile.setText("Job File:" + FCFS.jobFile);
 			}
 		}
 	}

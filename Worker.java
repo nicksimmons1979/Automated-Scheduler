@@ -10,7 +10,7 @@ public class Worker
 	private ProcessControlBlock job;
 	private int jobsLoaded;
 
-	public List<String> loadSequence = new ArrayList<String>();
+	private List<ProcessControlBlock> loadSequence = new ArrayList<ProcessControlBlock>();
 	private boolean busy;
 	private double idleTime;
 	
@@ -63,14 +63,14 @@ public class Worker
 	{
 		return idleTime;
 	}
-	public void putLoadSequence(String name)
+	public void putLoadSequence(ProcessControlBlock job)
 	{
-		loadSequence.add(name);
+		loadSequence.add(job);
 	}
 	
-	public String getLoadSequence()
+	public List<ProcessControlBlock> getLoadSequence()
 	{
-		return loadSequence.remove(0);
+		return loadSequence;
 	}
 	
 	public String getWorkerName()

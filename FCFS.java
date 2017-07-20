@@ -11,16 +11,17 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import java.io.*;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
+
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormat;
-import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFDataFormat;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class FCFS
 {	
@@ -39,7 +40,7 @@ public class FCFS
 	public static void main(String args[]) throws IOException
 	{	
 		// constants defining simulation characteristics
-		final double SIMULATION_TIME = 3000; // hrs
+		final double SIMULATION_TIME = 2000; // hrs, 1 year
 		final double SIMULATION_INCREMENT = 0.01;
 		DecimalFormat fmt = new DecimalFormat("0.##"); // statistics output format
 		
@@ -50,16 +51,16 @@ public class FCFS
 		List<ProcessControlBlock> unassignedJobs = new ArrayList<ProcessControlBlock>();
 		List<ProcessControlBlock> missedJobs = new ArrayList<ProcessControlBlock>();
 		List<ProcessControlBlock> completedJobs = new ArrayList<ProcessControlBlock>();
+		List<Worker> alternateWorkers = new ArrayList<Worker>();
 		double averageTurnAroundTime = 0;		
 		double averageWaitingTime = 0;
 
 		// worker details
-
 		int lastAlternateWorker = 0;
 		int workerID = 0;				
 		String info = "";
 		
-		// Create frame and dialog to open pending job list
+		// Create frame and dialog to results
 		JFrame frameScheduler = new JFrame ("Results");
 		frameScheduler.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
 		JTextArea ta = new JTextArea (50, 30);
@@ -147,8 +148,82 @@ public class FCFS
 				
        		// lowest queue size worker not capable, find another worker
        		// fix balances algo, doesn't balance nicely, still stacking unfairly to capable workers
+       		// doesnt cycle back through workers, fix
        		else
        		{
+       			System.out.println("problem with job " + pcb.getJobName() + " rank " + pcb.getJobRank());
+       			// create list of capable workers
+       			for (int i = 0; i < workerCount; i++)
+       			{
+       				System.out.println("checking " + workers[i].getWorkerName() + " rank " + workers[i].getRank());
+       				if (workers[i].getRank() >= pcb.getJobRank())
+       				{
+       					alternateWorkers.add(workers[i]);
+       					System.out.println("worker " + workers[i].getWorkerName() + " selected");
+
+       				}
+
+       			}
+       			System.out.println("\nalternate worker size: " + alternateWorkers.size());
+       			
+       			if (!alternateWorkers.isEmpty())
+       			{
+       				// find worker with least amount of work
+       	       		smallest = alternateWorkers.get(0).getWorkerLoad();
+       	       		largest = alternateWorkers.get(0).getWorkerLoad();
+       	       		smallestIndex = 0;
+       					
+       	       		for(int j = 0; j < alternateWorkers.size(); j++)
+       	       		{
+       	       			if(alternateWorkers.get(j).getWorkerLoad() > largest)
+       	       			{
+       	       				largest = alternateWorkers.get(j).getWorkerLoad();
+       	       			}
+
+       	       			else if (alternateWorkers.get(j).getWorkerLoad() < smallest)
+       	       			{
+       	       				smallest = alternateWorkers.get(j).getWorkerLoad();
+       	       				smallestIndex = j;
+       	       			}
+       	       		}
+       	       		workerID = smallestIndex;
+       	       		System.out.println(workers[workerID].getWorkerName() + " selected for job " + pcb.getJobName());
+       				
+       	       		
+       	       		// find which alternate worker corresponds to the correct worker in main array
+       	       		for (int i = 0; i < workerCount; i++)
+       	       		{
+       	       			if (workers[i].getWorkerName() == alternateWorkers.get(workerID).getWorkerName())
+       	       			{
+       	       				workerID = i;
+       	       				break;
+       	       			}
+       	       		}
+       	       		
+       	       		// assign job
+  					// transfer job from joblist to worker queue 
+   	       			pcb.setWorkerName(workers[workerID].getWorkerName()); // bind worker name to job for hx
+   					workers[workerID].putQueue(pcb);
+   					workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
+   					workers[workerID].addWorkerLoad(pcb.getJobTime());
+   					System.out.println("alternative worker " + workers[workerID].getWorkerName() + " found for job " + pcb.getJobName());
+   					pcb = null;
+   					
+   					// empty out alternateWorker queue
+   					while (!alternateWorkers.isEmpty())
+   					{
+   						alternateWorkers.remove(0);
+   					}
+       			}
+       			
+       			else
+       			{
+       				System.out.println(pcb.getJobName() + " ditched, failure to assign"); 
+       				unassignedJobs.add(pcb);
+       				pcb = null; // ditch job for now
+       			}
+       			
+       			/*
        			// cycle through all workers
        			if ((lastAlternateWorker + 1) >= workerCount) 
 					lastAlternateWorker = 0;
@@ -177,7 +252,7 @@ public class FCFS
        				System.out.println(pcb.getJobName() + " ditched, failure to assign"); 
        				unassignedJobs.add(pcb);
        				pcb = null; // ditch job for now
-       			}
+       			}*/
        		} 		
        	}
  
@@ -376,6 +451,15 @@ public class FCFS
 		frameScheduler.pack();
 		frameScheduler.setVisible(true);		
 		ta.setText(info);
+		
+		// warn user of excel file write delay
+		JFrame frameExcel = new JFrame ("Saving Files");
+		frameExcel.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
+		JTextArea taExcel = new JTextArea (20, 30);
+		frameExcel.getContentPane().add(taExcel);
+		frameExcel.pack();
+		frameExcel.setVisible(true);	
+		taExcel.setText("Writing production plan...\nPlease Wait.");
 	
 		// dump load list to csv file
 		try
@@ -413,81 +497,65 @@ public class FCFS
 		try
 		{
 			// create a new file
-			FileOutputStream out = new FileOutputStream("production_plan_" + jobFile + ".xls");
+			FileOutputStream out = new FileOutputStream("production_plan_" + jobFile + ".xlsx");
 			// create a new workbook
-			Workbook wb = new HSSFWorkbook();
+			XSSFWorkbook wb = new XSSFWorkbook();
 			// create a new sheet
-			HSSFSheet s = (HSSFSheet) wb.createSheet();
+			XSSFSheet s = (XSSFSheet) wb.createSheet();
 			// declare a row object reference
-			Row r = null;
+			XSSFRow r = null;
 			// declare a cell object reference
-			Cell c = null;
-			// create 3 cell styles
-			CellStyle cellStyle3 = wb.createCellStyle();
-			CellStyle cellStyle2 = wb.createCellStyle();
-		
-			DataFormat df = wb.createDataFormat();
-
-			// create 2 fonts objects
-			Font f = wb.createFont();
-
-			//set font 1 to 12 point type
-			f.setFontHeightInPoints((short) 11);
-			//make it blue
-			f.setColor((short)0x0);
-		
-			// set font to Calibri
-			f.setFontName("Calibri");
-
-			//set cell stlye
-			cellStyle2.setFont(f);
-			cellStyle3.setFont(f);
-			//set the cell format 
-			cellStyle2.setDataFormat(df.getFormat("#,##0.0"));
-			cellStyle3.setDataFormat(df.getFormat("#,##0.0"));
-
+			XSSFCell c = null;
 			// set the sheet name in Unicode
 			wb.setSheetName(0, "Production Plan " + jobFile);
-		
-			// Style the cell borders x 3.
-			cellStyle2.setBorderBottom(CellStyle.BORDER_THIN);
-			cellStyle2.setBottomBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle2.setBorderLeft(CellStyle.BORDER_NONE);
-			cellStyle2.setLeftBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle2.setBorderRight(CellStyle.BORDER_NONE);
-			cellStyle2.setRightBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle2.setBorderTop(CellStyle.BORDER_THIN);
-			cellStyle2.setTopBorderColor(IndexedColors.BLACK.getIndex());
-		
-			// Style the cell borders top and bottom.
-			cellStyle3.setBorderBottom(CellStyle.BORDER_THIN);
-			cellStyle3.setBottomBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle3.setBorderLeft(CellStyle.BORDER_THIN);
-			cellStyle3.setLeftBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle3.setBorderRight(CellStyle.BORDER_NONE);
-			cellStyle3.setRightBorderColor(IndexedColors.BLACK.getIndex());
-			cellStyle3.setBorderTop(CellStyle.BORDER_THIN);
-			cellStyle3.setTopBorderColor(IndexedColors.BLACK.getIndex());
-		
-			// create a sheet	    
-			// compute columns
-			int maxLoad = (int)Math.ceil(workers[0].getWorkerLoad());
-			int rownum = 0;
+			// create cell data format
+			XSSFDataFormat df = wb.createDataFormat();
+			// create 2 fonts objects
+			XSSFFont f = wb.createFont();
+			//set font 1 to 12 point type
+			f.setFontHeightInPoints((short) 12);
+			//make it black
+			f.setColor((short)0x0);
+			// set font to Calibri
+			f.setFontName("Calibri");			
+
+			// create cell styles, 0 = blank cell, [1,workerCount] = worker colours
+			XSSFCellStyle cellStyles[] = new XSSFCellStyle[workerCount + 1];	
+			for (int i = 0; i < workerCount + 1; i++)
+			{
+				 cellStyles[i] = wb.createCellStyle();
+	
+			}
+
+			short colour = (short)(IndexedColors.LEMON_CHIFFON.getIndex() + 14);
+			
+			// set cell style attributes, top bottom borders, for filled cells
 			for (int i = 0; i < workerCount; i++)
 			{
-				if (workers[i].getJobsLoaded() > maxLoad);
-				{
-					maxLoad = (int)Math.ceil(workers[i].getWorkerLoad());
-				}
+				cellStyles[i].setFont(f);
+				cellStyles[i].setDataFormat(df.getFormat("#,##0.0"));
+				cellStyles[i].setBorderBottom(CellStyle.BORDER_THIN);
+				cellStyles[i].setBottomBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderLeft(CellStyle.BORDER_NONE);
+				cellStyles[i].setLeftBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+				cellStyles[i].setRightBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderTop(CellStyle.BORDER_THIN);
+				cellStyles[i].setTopBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setFillForegroundColor(colour);
+				cellStyles[i].setFillPattern(CellStyle.SOLID_FOREGROUND);
+				colour++; // start at orange, increment colours for each worker
 			}
-	    
+
+			// create a sheet	    
+
 			// end of spreadsheet column buffer
-			maxLoad = 255;
+			short maxLoad = (int)SIMULATION_TIME;
 		
-			for (; rownum < workerCount+10; rownum++)
+			for (int rownum = 0; rownum < workerCount+10; rownum++)
 			{
 				// 	create a row
-				r = ((org.apache.poi.ss.usermodel.Sheet) s).createRow(rownum);
+				r = (XSSFRow) ((org.apache.poi.ss.usermodel.Sheet) s).createRow(rownum);
 	
 				// create maxLoad+1 cells per row
 				for (int cellnum = 0; cellnum < maxLoad; cellnum++)
@@ -497,18 +565,33 @@ public class FCFS
 				}
 			}
 		
+			cellStyles[workerCount].setFont(f);
+			
 			// put start time
 			r = s.getRow(0);
 			c = r.getCell(0);
 			c.setCellType(CellType.STRING);
 			c.setCellValue(LocalDateTime.now().toString());
+			c.setCellStyle(cellStyles[workerCount]);
 
+			// put in hours
+			int week = 2;
 			for (int i = 1; i < maxLoad; i++)
 			{
 				r = s.getRow(0);
 				c = r.getCell(i);
 				c.setCellType(CellType.NUMERIC);
-				c.setCellValue(i);
+				c.setCellStyle(cellStyles[workerCount]);
+				if ((i % 75) == 0)
+				{
+					c.setCellValue("Week " + week);
+					week += 2;
+				}
+				
+				else
+				{
+					c.setCellValue(i-1);
+				}
 			}
 		
 			// put in worker names
@@ -517,49 +600,74 @@ public class FCFS
 				r = s.getRow(i+1);
 				c = r.getCell(0);
 				c.setCellType(CellType.STRING);
+				c.setCellStyle(cellStyles[i]);
 				c.setCellValue(workers[i].getWorkerName());
 			}
 
 			// put in jobs
 			for (int i = 0; i < workerCount; i++)
 			{
-				short colour = IndexedColors.ORANGE.getIndex();
-			
 				for (int j = 0; j < workers[i].getLoadSequence().size(); j++) 
 				{
+					// compute starting, finish cell
+					int startCell = (int)Math.ceil(workers[i].getLoadSequence().get(j).getStartTime() + 1);
+					int finishCell = (int)Math.ceil(workers[i].getLoadSequence().get(j).getFinishedTime());
+
+					// write start cell
 					r = s.getRow(i+1);
-					c = r.getCell((int)Math.round(workers[i].getLoadSequence().get(j).getStartTime() + 1));
+					c = r.getCell(startCell);
 					c.setCellType(CellType.STRING);
-	
-					// set borders x 3 and highlight
-					cellStyle3.setFillForegroundColor(colour);
-					cellStyle3.setFillPattern(CellStyle.SOLID_FOREGROUND);
-					c.setCellStyle(cellStyle3);
-				
-					// put job in to cell
-					c.setCellValue(workers[i].getLoadSequence().get(j).getJobName());
+					c.setCellValue(workers[i].getLoadSequence().get(j).getJobName());	
+					cellStyles[i].setBorderLeft(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+					cellStyles[i].setBorderTop(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderBottom(CellStyle.BORDER_THIN);
+					c.setCellStyle(cellStyles[i]);
+					
+
+					for (int l=startCell+1; l < finishCell; l++)
+					{
+						// write fill cells
+						c = r.getCell(l);
+						c.setCellType(CellType.STRING);
+						cellStyles[i].setBorderLeft(CellStyle.BORDER_NONE);
+						cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+
+						c.setCellStyle(cellStyles[i]);
+					}
+					
+					// write finish cell
+					c = r.getCell(finishCell);
+					c.setCellType(CellType.STRING);
+					c.setCellStyle(cellStyles[i]);
+					
+					cellStyles[i].setBorderLeft(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderRight(CellStyle.BORDER_THIN);
+
+					c.setCellStyle(cellStyles[i]);
 				}
 			}		
 		
 			// put in stats
-	
 			r = s.getRow(workerCount+1);
 			c = r.getCell(0);
-			//c.setCellType(CellType.STRING);
 			c.setCellValue(info); 
 	
-			cellStyle2.setWrapText(true);
-			cellStyle2.setAlignment(CellStyle.ALIGN_CENTER);
-			cellStyle2.setVerticalAlignment(CellStyle.VERTICAL_TOP);
-			c.setCellStyle(cellStyle2);
+			cellStyles[workerCount].setWrapText(true);
+			cellStyles[workerCount].setAlignment(CellStyle.ALIGN_CENTER);
+			cellStyles[workerCount].setVerticalAlignment(CellStyle.VERTICAL_TOP);
+			c.setCellStyle(cellStyles[workerCount]);
 			
-			r.setHeight((short)10000);
+			r.setHeight((short)100000);
 			s.autoSizeColumn(0);
 
 			// write the workbook to the output stream
 			wb.write(out);
 			out.close();
 			wb.close();
+			
+			System.out.println("file write done");
+			taExcel.setText("Production plan finished.");
 		}
 		
 		catch(FileNotFoundException e)
@@ -571,6 +679,6 @@ public class FCFS
 			frameError.pack();
 			frameError.setVisible(true);	
 			taError.setText("Production plan not written. Is the file already open?");	 
-		}
-	}
+		}		
+	}	
 }

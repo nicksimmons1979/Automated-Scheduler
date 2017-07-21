@@ -56,7 +56,6 @@ public class FCFS
 		double averageWaitingTime = 0;
 
 		// worker details
-		int lastAlternateWorker = 0;
 		int workerID = 0;				
 		String info = "";
 		
@@ -108,8 +107,6 @@ public class FCFS
        	// create ordered worker queues from jobList
        	while (!jobList.isEmpty())
        	{					
-       		boolean assigned = false;
-			
        		// find worker with least amount of work
        		double smallest = workers[0].getWorkerLoad();
        		double largest = workers[0].getWorkerLoad();
@@ -143,7 +140,6 @@ public class FCFS
        			workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
        			workers[workerID].addWorkerLoad(pcb.getJobTime());
        			pcb = null;
-       			assigned = true;
        		}		
 				
        		// lowest queue size worker not capable, find another worker
@@ -222,37 +218,6 @@ public class FCFS
        				unassignedJobs.add(pcb);
        				pcb = null; // ditch job for now
        			}
-       			
-       			/*
-       			// cycle through all workers
-       			if ((lastAlternateWorker + 1) >= workerCount) 
-					lastAlternateWorker = 0;
-					
-       			// start at last alternate worker + 1, ensures one worker doesn't get piled on
-       			for (int i = (lastAlternateWorker); i < workerCount; i++)
-       			{
-       				if (workers[i].getRank() >= pcb.getJobRank())
-       				{
-       					// transfer job from joblist to worker queue 
-       	       			pcb.setWorkerName(workers[workerID].getWorkerName()); // bind worker name to job for hx
-       					workers[i].putQueue(pcb);
-       					workers[i].setJobsLoaded(workers[i].getJobsLoaded() + 1);
-       					workers[i].addWorkerLoad(pcb.getJobTime());
-       					System.out.println("alternative worker " + (i+1) + " found for job " + pcb.getJobName());
-       					pcb = null;
-       					assigned = true;
-       					lastAlternateWorker = i+1;
-
-       					break; // successful target found, stop looking			
-       				}	
-       			}
-					
-       			if (assigned == false)
-       			{
-       				System.out.println(pcb.getJobName() + " ditched, failure to assign"); 
-       				unassignedJobs.add(pcb);
-       				pcb = null; // ditch job for now
-       			}*/
        		} 		
        	}
  
@@ -464,7 +429,7 @@ public class FCFS
 		// dump load list to csv file
 		try
 		{
-			PrintWriter out = new PrintWriter("loadlist_"+jobFile);
+			PrintWriter out = new PrintWriter("loadlist_"+ workerFile + "_" + jobFile);
 			for (int i = 0; i < workerCount; i++)
 			{
 				out.print(workers[i].getWorkerName() + ","); // dump worker name cell
@@ -497,7 +462,7 @@ public class FCFS
 		try
 		{
 			// create a new file
-			FileOutputStream out = new FileOutputStream("production_plan_" + jobFile + ".xlsx");
+			FileOutputStream out = new FileOutputStream("production_plan_" + workerFile + "_" + jobFile + ".xlsx");
 			// create a new workbook
 			XSSFWorkbook wb = new XSSFWorkbook();
 			// create a new sheet
@@ -550,7 +515,7 @@ public class FCFS
 			// create a sheet	    
 
 			// end of spreadsheet column buffer
-			short maxLoad = (int)SIMULATION_TIME;
+			short maxLoad = (int)SIMULATION_TIME * 2;
 		
 			for (int rownum = 0; rownum < workerCount+10; rownum++)
 			{
@@ -575,23 +540,36 @@ public class FCFS
 			c.setCellStyle(cellStyles[workerCount]);
 
 			// put in hours
-			int week = 2;
+			int week = 0;
+			boolean flag = true;
 			for (int i = 1; i < maxLoad; i++)
 			{
 				r = s.getRow(0);
 				c = r.getCell(i);
 				c.setCellType(CellType.NUMERIC);
 				c.setCellStyle(cellStyles[workerCount]);
-				if ((i % 75) == 0)
+				
+				c.setCellValue((i-1)/2);
+				
+				if (((i-1)/2) % 75 == 0)
 				{
 					c.setCellValue("Week " + week);
-					week += 2;
+					if (flag == false)
+					{
+						flag = true;
+						week +=2 ;
+					}
+					
+					else
+					{
+						flag = false;
+					}
 				}
 				
-				else
-				{
-					c.setCellValue(i-1);
-				}
+
+
+
+
 			}
 		
 			// put in worker names
@@ -607,11 +585,22 @@ public class FCFS
 			// put in jobs
 			for (int i = 0; i < workerCount; i++)
 			{
+				int startCell = 0;
+				int finishCell = 0;
+				double startCellTemp = 0;
+				double finishCellTemp = 0;
+				
 				for (int j = 0; j < workers[i].getLoadSequence().size(); j++) 
 				{
-					// compute starting, finish cell
-					int startCell = (int)Math.ceil(workers[i].getLoadSequence().get(j).getStartTime() + 1);
-					int finishCell = (int)Math.ceil(workers[i].getLoadSequence().get(j).getFinishedTime());
+					// compute starting, finish cell, work in half hour units
+					startCellTemp = 2 * (workers[i].getLoadSequence().get(j).getStartTime() + 1); // +1 to account for worker column
+					finishCellTemp = 2 * (workers[i].getLoadSequence().get(j).getJobTime()); // extra factor of 2 to double cells
+					startCellTemp = Math.round(startCellTemp);
+					finishCellTemp = Math.round(finishCellTemp);
+					finishCellTemp += startCellTemp;
+
+					startCell = (int) startCellTemp;
+					finishCell = (int) finishCellTemp;
 
 					// write start cell
 					r = s.getRow(i+1);
@@ -624,7 +613,6 @@ public class FCFS
 					cellStyles[i].setBorderBottom(CellStyle.BORDER_THIN);
 					c.setCellStyle(cellStyles[i]);
 					
-
 					for (int l=startCell+1; l < finishCell; l++)
 					{
 						// write fill cells

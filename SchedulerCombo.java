@@ -7,8 +7,8 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
-
 import javax.swing.*;
+import javax.swing.event.*;
 
 // class to create combination box for algorithm selection
 @SuppressWarnings("serial")
@@ -19,16 +19,21 @@ public class SchedulerCombo extends JPanel
 	private JButton addWorkerButton;
 	private JButton addJobsButton;
 	private JCheckBox lateBox;
-//	private JTextField safetyBuffer;
-	JFrame frameWorkers = new JFrame ("Input Files");
-	JTextArea taWorkers = new JTextArea (20, 30);
+	private JTextField workerFile;
+	private JTextField jobFile;
 	private JRadioButton sjf, ljf, edd, fdd;
-	private String info = "";
+	private JSlider crSlider;
 
 	// create and define drop down combo box, fields and buttons for gui
 
 	public SchedulerCombo()
 	{			
+		// create, configure text fields
+		workerFile = new JTextField(30);
+		workerFile.setBackground(Color.white);
+		jobFile = new JTextField(30);
+		jobFile.setBackground(Color.white);
+
 		// create, configure button
 		processButton = new JButton ("Process");
 		processButton.setBackground (Color.white);
@@ -53,14 +58,21 @@ public class SchedulerCombo extends JPanel
 		group.add(fdd);
 		
 		// check box
-		lateBox = new JCheckBox ("Reschedule late jobs");
+		lateBox = new JCheckBox ("Use safety buffer to reschedule");
 		lateBox.setBackground (Color.lightGray);
 		
-		// text field
-	//	safetyBuffer = new JTextField(5);
-	//	safetyBuffer.addActionListener (new TextListener());
+		// slider for critical ratio
+		crSlider = new JSlider (JSlider.HORIZONTAL, 1, 5, 2);
+		crSlider.setMajorTickSpacing (1);
+		crSlider.setMinorTickSpacing (0);
+		crSlider.setPaintTicks (true);
+		crSlider.setPaintLabels (true);
+		crSlider.setAlignmentX (Component.LEFT_ALIGNMENT);
+		crSlider.setBackground(Color.lightGray);
 		
-		
+		// slider listener
+		SliderListener sliderListener = new SliderListener();
+		crSlider.addChangeListener (sliderListener);
 		
 		// radio listeners
 		QuoteListener listener = new QuoteListener();
@@ -74,7 +86,7 @@ public class SchedulerCombo extends JPanel
 		lateBox.addItemListener (boxListener);
 		
 		// setup panel and even listeners
-		setPreferredSize (new Dimension (350, 125));
+		setPreferredSize (new Dimension (350, 225));
 		setBackground (Color.lightGray);
 
 		add(addWorkerButton);
@@ -85,30 +97,22 @@ public class SchedulerCombo extends JPanel
 		add(edd);
 		add(fdd);
 		add(lateBox);
-		//add(safetyBuffer);
-		
-		//add (processButton);
+		add(crSlider);
+		add(workerFile);
+		add(jobFile);
 
 		addWorkerButton.addActionListener(new AddWorkerButtonListener());
 		addJobsButton.addActionListener(new AddJobsButtonListener());
 		processButton.addActionListener(new ButtonListener());
-		
-		//output window for adding workers
-		frameWorkers.setDefaultCloseOperation (JFrame.HIDE_ON_CLOSE);
-		frameWorkers.getContentPane().add(taWorkers);
-		frameWorkers.pack();
-		frameWorkers.setVisible(true);	
 	}
-	/*
-	private class TextListener implements ActionListener
+	
+	private class SliderListener implements ChangeListener
 	{
-		public void actionPerformed (ActionEvent event)
+		public void stateChanged (ChangeEvent event)
 		{
-			String text = safetyBuffer.getText();
-			FCFS.CRITICAL_SAFETY_FACTOR = Double.parseDouble(text);
-			System.out.println(FCFS.CRITICAL_SAFETY_FACTOR);
+			FCFS.criticalSafetyFactory = (double)crSlider.getValue();
 		}
-	}*/
+	}
 	
 	// represents the action listener for process button
 	private class ButtonListener implements ActionListener
@@ -135,14 +139,13 @@ public class SchedulerCombo extends JPanel
 			// error?
 			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				taWorkers.setText ("No Worker File Chosen");
+				workerFile.setText ("No Worker File Chosen");
 			}
 			
 			else 
 			{
 				FCFS.workerFile = file.getName();
-				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
-				taWorkers.setText (info);
+				workerFile.setText("Worker File:" + FCFS.workerFile);
 			}
 		}
 	}
@@ -160,14 +163,13 @@ public class SchedulerCombo extends JPanel
 			// error?
 			if (status != JFileChooser.APPROVE_OPTION)
 			{
-				taWorkers.setText ("No Jobs File Chosen");
+				jobFile.setText ("No Jobs File Chosen");
 			}
 			
 			else 
 			{
 				FCFS.jobFile = file.getName();
-				info = "Worker File:" + FCFS.workerFile + "\nJob File:" + FCFS.jobFile;
-				taWorkers.setText (info);
+				jobFile.setText("Job File:" + FCFS.jobFile);
 			}
 		}
 	}

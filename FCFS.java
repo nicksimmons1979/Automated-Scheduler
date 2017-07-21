@@ -6,52 +6,63 @@
 //*****************************************************************************************************************************
 
 import java.text.DecimalFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import java.io.*;
 
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFDataFormat;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 public class FCFS
-{
+{	
 	// global variables for JFrame communication, bad method, investigate return values for action listeners
 	static int workerCount;
 	static boolean wait = true;
 	static int algorithm = 1;
-	static List<String> workerNames = new ArrayList<String>();
-	static List<Integer> workerRanks = new ArrayList<Integer>();
 	static String workerFile = null;
 	static String jobFile = null;
 	static boolean lateAvoidance = false;
-	static double CRITICAL_SAFETY_FACTOR = 1.5;
+	static double criticalSafetyFactory = 2.0;
+	static List<String> workerNames = new ArrayList<String>();
+	static List<Integer> workerRanks = new ArrayList<Integer>();
 
+	@SuppressWarnings("deprecation")
 	public static void main(String args[]) throws IOException
 	{	
 		// constants defining simulation characteristics
-		final double SIMULATION_TIME = 300; // hrs
+		final double SIMULATION_TIME = 2000; // hrs, 1 year
 		final double SIMULATION_INCREMENT = 0.01;
-		final double CRITICAL_SAFETY_FACTOR = 1.5;
 		DecimalFormat fmt = new DecimalFormat("0.##"); // statistics output format
 		
 		// create queues for holding jobs on arrival and worker queues
 		ProcessControlBlock pcb = null; // job storage for file->queue
 				
 		// for computations of statistics
-		List<Double> previousTAT = new ArrayList<Double>();
-		List<Double> previousWT = new ArrayList<Double>();
 		List<ProcessControlBlock> unassignedJobs = new ArrayList<ProcessControlBlock>();
+		List<ProcessControlBlock> missedJobs = new ArrayList<ProcessControlBlock>();
+		List<ProcessControlBlock> completedJobs = new ArrayList<ProcessControlBlock>();
+		List<Worker> alternateWorkers = new ArrayList<Worker>();
 		double averageTurnAroundTime = 0;		
 		double averageWaitingTime = 0;
-		double hoursTillDue = 0;
 
-		int workerID = 0;
-		int missedDeadlines = 0;				
+		// worker details
+		int workerID = 0;				
 		String info = "";
-		int lastAlternateWorker = 0;
 		
-		// Create frame and dialog to open pending job list
+		// Create frame and dialog to results
 		JFrame frameScheduler = new JFrame ("Results");
 		frameScheduler.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
-		JTextArea ta = new JTextArea (20, 30);
+		JTextArea ta = new JTextArea (50, 30);
 		
 		// Create frame to select scheduler and employees
 		JFrame frame = new JFrame ("Automated Scheduler v1.0");
@@ -88,12 +99,14 @@ public class FCFS
 		{
 			workers[i] = new Worker(workerNames.remove(0), workerRanks.remove(0));		
 		}
-			
+
+		// ****************************************************************************
+		//  scheduler section 	
+		// ****************************************************************************
+		
        	// create ordered worker queues from jobList
        	while (!jobList.isEmpty())
        	{					
-       		boolean assigned = false;
-			
        		// find worker with least amount of work
        		double smallest = workers[0].getWorkerLoad();
        		double largest = workers[0].getWorkerLoad();
@@ -122,50 +135,96 @@ public class FCFS
        		// worker is capable of processing job
        		if (workers[workerID].getRank() >= pcb.getJobRank())
        		{
+       			pcb.setWorkerName(workers[workerID].getWorkerName()); // bind worker name to job for hx
 				workers[workerID].putQueue(pcb);
        			workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
        			workers[workerID].addWorkerLoad(pcb.getJobTime());
        			pcb = null;
-       			assigned = true;
        		}		
 				
        		// lowest queue size worker not capable, find another worker
        		// fix balances algo, doesn't balance nicely, still stacking unfairly to capable workers
+       		// doesnt cycle back through workers, fix
        		else
        		{
-       			// cycle through all workers
-       			if ((lastAlternateWorker + 1) >= workerCount) 
-					lastAlternateWorker = 0;
-					
-       			// start at last alternate worker + 1, ensures one worker doesn't get piled on
-       			for (int i = (lastAlternateWorker); i < workerCount; i++)
+       			System.out.println("problem with job " + pcb.getJobName() + " rank " + pcb.getJobRank());
+       			// create list of capable workers
+       			for (int i = 0; i < workerCount; i++)
        			{
+       				System.out.println("checking " + workers[i].getWorkerName() + " rank " + workers[i].getRank());
        				if (workers[i].getRank() >= pcb.getJobRank())
        				{
-       					// transfer job from joblist to worker queue 
-       					workers[i].putQueue(pcb);
-       					workers[i].setJobsLoaded(workers[i].getJobsLoaded() + 1);
-       					workers[i].addWorkerLoad(pcb.getJobTime());
-       					System.out.println("alternative worker " + (i+1) + " found for job " + pcb.getJobName());
-       					pcb = null;
-       					assigned = true;
-       					lastAlternateWorker = i+1;
+       					alternateWorkers.add(workers[i]);
+       					System.out.println("worker " + workers[i].getWorkerName() + " selected");
 
-       					break; // successful target found, stop looking			
-       				}	
+       				}
+
        			}
-					
-       			if (assigned == false)
+       			System.out.println("\nalternate worker size: " + alternateWorkers.size());
+       			
+       			if (!alternateWorkers.isEmpty())
        			{
-       				System.out.println(pcb.getJobName() + " ditched, failure to assign");
-       				info += "Failure to assign " + pcb.getJobName() + " no capable worker\n"; 
+       				// find worker with least amount of work
+       	       		smallest = alternateWorkers.get(0).getWorkerLoad();
+       	       		largest = alternateWorkers.get(0).getWorkerLoad();
+       	       		smallestIndex = 0;
+       					
+       	       		for(int j = 0; j < alternateWorkers.size(); j++)
+       	       		{
+       	       			if(alternateWorkers.get(j).getWorkerLoad() > largest)
+       	       			{
+       	       				largest = alternateWorkers.get(j).getWorkerLoad();
+       	       			}
+
+       	       			else if (alternateWorkers.get(j).getWorkerLoad() < smallest)
+       	       			{
+       	       				smallest = alternateWorkers.get(j).getWorkerLoad();
+       	       				smallestIndex = j;
+       	       			}
+       	       		}
+       	       		workerID = smallestIndex;
+       	       		System.out.println(workers[workerID].getWorkerName() + " selected for job " + pcb.getJobName());
+       				
+       	       		
+       	       		// find which alternate worker corresponds to the correct worker in main array
+       	       		for (int i = 0; i < workerCount; i++)
+       	       		{
+       	       			if (workers[i].getWorkerName() == alternateWorkers.get(workerID).getWorkerName())
+       	       			{
+       	       				workerID = i;
+       	       				break;
+       	       			}
+       	       		}
+       	       		
+       	       		// assign job
+  					// transfer job from joblist to worker queue 
+   	       			pcb.setWorkerName(workers[workerID].getWorkerName()); // bind worker name to job for hx
+   					workers[workerID].putQueue(pcb);
+   					workers[workerID].setJobsLoaded(workers[workerID].getJobsLoaded() + 1);
+   					workers[workerID].addWorkerLoad(pcb.getJobTime());
+   					System.out.println("alternative worker " + workers[workerID].getWorkerName() + " found for job " + pcb.getJobName());
+   					pcb = null;
+   					
+   					// empty out alternateWorker queue
+   					while (!alternateWorkers.isEmpty())
+   					{
+   						alternateWorkers.remove(0);
+   					}
+       			}
+       			
+       			else
+       			{
+       				System.out.println(pcb.getJobName() + " ditched, failure to assign"); 
        				unassignedJobs.add(pcb);
        				pcb = null; // ditch job for now
        			}
        		} 		
        	}
  
-		// process queues
+       	// ****************************************************************************      	
+       	// simulator section 
+       	// ****************************************************************************
+       	
 		for (double currentTime = 0; currentTime < SIMULATION_TIME; currentTime = currentTime + SIMULATION_INCREMENT)
 		{
 			// check queue for critical ratio of CRITICAL_SAFETY_FACTOR (hours left before due / job time)
@@ -176,191 +235,208 @@ public class FCFS
 					for (int j = 0; j < workers[i].getWorkerQ().size(); j++)
 					{
 						double criticalRatio = ((workers[i].getWorkerQ().get(j).getDueTime() - currentTime) / workers[i].getWorkerQ().get(j).getJobTime());
-					
-						if (criticalRatio < CRITICAL_SAFETY_FACTOR)
+						
+						if (criticalRatio < criticalSafetyFactory)
 						{
 							// take some action, push job to front of queue
-							System.out.println("job " + workers[i].getWorkerQ().get(j).getJobName() + " is going to be late.");
-							System.out.println("PUSH!");
+							System.out.println("PUSH! job " + workers[i].getWorkerQ().get(j).getJobName() + " is going to be late.");
 							ProcessControlBlock tempBlock;
 							tempBlock = workers[i].getWorkerQ().remove(j);
 							workers[i].getWorkerQ().add(0, tempBlock);
 						}
 					}
 				}
-			}
+			}					
 			
 			// process all workers simultaneously
 			for (int i = 0; i < workerCount; i++)
-			{				
-				// if there is a job running on worker
-				if (workers[i].getJob() != null)
+			{
+				// check if the worker is busy or idle
+				// worker is not busy
+				if (!workers[i].isBusy())
 				{
-					// if job on worker is finished
-					if ((workers[i].getJobLoadTime() + workers[i].getJobTime()) <= currentTime)
+					// load a job to the worker
+					// is there a job for the worker
+					if (!workers[i].isEmpty())
 					{
+						// is it time to start the job?
+						if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
+						{
+							// load job from worker queue to worker
+							workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
+							// store job start time
+							workers[i].setStartTime(currentTime);
+							// store job name for load list
+							workers[i].getLoadSequence().add((ProcessControlBlock)workers[i].getJob());
+							// set worker to busy
+							workers[i].setBusy(true);
+							System.out.println("Worker " + workers[i].getWorkerName() + " started job " + workers[i].getJobName() + " at " + currentTime);
+						}
+					}
+
+					// there is no job for worker, worker spins
+					else
+					{
+					}
+				}
+				
+				// worker is busy
+				else
+				{
+					// is the job finished?
+					if (currentTime >= workers[i].getStartTime() + workers[i].getJobTime())
+					{
+						// record finished details
+						workers[i].setFinishedTime(currentTime);
+						
+						// is the job late
+						if (workers[i].getFinishedTime() > workers[i].getDueTime())
+						{
+							System.out.println(workers[i].getJobName() + " finished at " + workers[i].getFinishedTime());
+							System.out.println(workers[i].getJobName() + " is late by " + (workers[i].getFinishedTime() - workers[i].getDueTime()));
+							missedJobs.add((ProcessControlBlock)workers[i].getJob());
+						}
+						
+						// job is on-time
+						else
+						{
+							System.out.println(workers[i].getJobName() + " finished at " + workers[i].getFinishedTime());
+							System.out.println(workers[i].getJobName() + " is early by " + (workers[i].getFinishedTime() - workers[i].getDueTime()));
+						}
+						
+						// worker is now idle
 						workers[i].setBusy(false);
-						previousTAT.add((workers[i].getJobLoadTime() + workers[i].getJobTime()) - workers[i].getArrivalTime());
-
-						// only compute the TAT when the worker is not idle 
-						if (workers[i].isBusy())
-						{
-							// compute turn around time for single job
-							System.out.println("Tat size:"+previousTAT.size());
-						}
-						
-						else
-						{
-							workers[i].setIdleTime(SIMULATION_INCREMENT);
-						}
-						
-						// 	load next job if one exists, else wait
-						if (!workers[i].isEmpty())
-						{
-							if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
-							{
-								workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-								workers[i].putLoadSequence(workers[i].getJobName());
-								workers[i].setJobLoadTime(currentTime); // worker starts job
-								workers[i].setBusy(true);
-								System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
-
-								// is this job too late?
-								hoursTillDue = workers[i].getDueTime() - workers[i].getJobLoadTime() - workers[i].getJobTime();
-
-								if (hoursTillDue < 0)
-								{
-									missedDeadlines++;
-									System.out.println("Job " + workers[i].getJobName() + " late by " + -hoursTillDue);
-									info += ("\nJob " + workers[i].getJobName() + " late by " + fmt.format(-hoursTillDue));
-								}
-							}
-
-							// time waiting on queue
-							previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
-						}
-					
-						// worker idle, queue is empty
-						else
-						{
-							workers[i].setJob(null);
-						}
+						// store job to finished queue
+						completedJobs.add((ProcessControlBlock)workers[i].getJob());							
 					}
 				}
-				
-				// if the worker is idle
-				else if (!workers[i].isEmpty())
-				{
-					// get process from queue and dispatch to the cpu
-					if (currentTime >= workers[i].getWorkerQ().get(0).getArrivalTime())
-					{
-						workers[i].setJob((ProcessControlBlock) workers[i].getQueue());
-						workers[i].putLoadSequence(workers[i].getJobName());
-						workers[i].setJobLoadTime(currentTime); // worker starts job
-						workers[i].setBusy(true);
-
-						System.out.println("loaded " + workers[i].getJobName() + " to worker " + (i+1)  + " at " + workers[i].getJobLoadTime());
-					}
-
-					// time waiting on queue
-					previousWT.add(workers[i].getJobLoadTime() - workers[i].getArrivalTime());
-				}
-				
 			}
-		}
+		}      
 			
 		// ****************************************************************************
 		// Compute and display results
 		// ****************************************************************************
+		
+		// compute idle times
+		for (int i = 0; i < workerCount; i++)
+		{
+			// time last job finished - workers total load
+			if (workers[i] != null)
+			{
+				workers[i].setIdleTime(workers[i].getFinishedTime() - workers[i].getWorkerLoad());
+			}
+		}		
 		
 		// compute average turn around time
 		int totalJobs = 0;
 		for (int i = 0; i < workerCount; i++)
 		{
 			totalJobs += workers[i].getJobsLoaded();
-		}
-
-		while(!previousTAT.isEmpty())
-		{	
-			averageTurnAroundTime += previousTAT.remove(0);
-		}
+		}		
 		
-		for (int i = 0; i < workerCount; i++)
+		// compute statistics for TAT, WT
+		for (int i = 0; i < completedJobs.size(); i++)
 		{
-		//	averageTurnAroundTime -= workers[i].getIdleTime();
+			averageTurnAroundTime += (completedJobs.get(i).getFinishedTime() - completedJobs.get(i).getArrivalTime());
+			averageWaitingTime += (completedJobs.get(i).getStartTime() - completedJobs.get(i).getArrivalTime());
 		}
 		
-		// compute average waiting time
-		while(!previousWT.isEmpty())
-		{
-			averageWaitingTime += previousWT.remove(0);
-		}
+		averageTurnAroundTime /= totalJobs;
+		averageWaitingTime /= totalJobs;
 		
-		for (int i = 0; i < workerCount; i++)
-		{
-		//	averageWaitingTime -= workers[i].getIdleTime();
-		}
-
-
-		info += "\n";
-		
-		// construct statistics for results	
+		// construct output string for results	
 		if (algorithm == 1)
 		{
-			info += ("\nShortest Job First");
+			info += ("Shortest Job First");
 		}
 		
 		else if (algorithm == 2)
 		{
-			info += ("\nLongest Job First");
+			info += ("Longest Job First");
 		}
 		
 		else if (algorithm == 3)
 		{
-			info += ("\nEarliest Due Date");
+			info += ("Earliest Due Date");
 		}
 
 		else if (algorithm == 4)
 		{
-			info += ("\nFarthest Due Date");
+			info += ("Farthest Due Date");
 		}
 		
-		info += ("\nJobs completed:" + totalJobs);
+		info += "\nAuto reschedule:" + lateAvoidance;
 		
-		info += ("\nAverage TAT:" + fmt.format(averageTurnAroundTime / totalJobs ) + " hours");
-		info += ("\nAverage WT:" + fmt.format(averageWaitingTime / totalJobs ) + " hours");	
-		info += ("\nDeadlines missed:" + missedDeadlines);
+		if (lateAvoidance)
+		{
+			info += "\nSafety Buffer:" + criticalSafetyFactory + "x";
+		}
+		
+		info += ("\nJobs loaded to from file:" + jobList.getItemsFromFile());
+		info += ("\nJobs loaded to workers:" + totalJobs);
+		info += ("\nJobs completed:" + (completedJobs.size() - unassignedJobs.size()));
+		info += ("\nDeadlines missed:" + missedJobs.size());
+		info += ("\nJobs unassigned:" + unassignedJobs.size());
+		
+		info += ("\n\nAverage TAT:" + fmt.format(averageTurnAroundTime) + " hours");
+		info += ("\nAverage WT:" + fmt.format(averageWaitingTime) + " hours");	
+
+		info += "\n";
+		
+		info += "\nTotal workers:" + workerCount;
 		
 		for (int i = 0; i < workerCount; i++)
 		{
 			info += ("\n" + (workers[i].getWorkerName()) +" queue size:" + fmt.format(workers[i].getWorkerLoad()) + " hours");
-			
 		}
-		
+
+		info += "\n";
+
 		for (int i = 0; i < workerCount; i++)
 		{
 			info += ("\n" + (workers[i].getWorkerName()) +" idle for:" + fmt.format(workers[i].getIdleTime()) + " hours");
-			
 		}
-
+		
+		info += "\n";
+		
+		for (int i = 0; i < missedJobs.size(); i++)
+		{
+			info += ("\n" + missedJobs.get(i).getJobName() + " late by " + (missedJobs.get(i).getFinishedTime() - missedJobs.get(i).getDueTime()));
+		}
+		
+		info += "\n";
+		
+		for (int i = 0; i < unassignedJobs.size(); i++)
+		{
+			info += ("\n" + unassignedJobs.get(i).getJobName() + " unassigned no capable worker");
+		}
 		
 		// display results frame
 		frameScheduler.getContentPane().add(ta);
 		frameScheduler.pack();
 		frameScheduler.setVisible(true);		
 		ta.setText(info);
+		
+		// warn user of excel file write delay
+		JFrame frameExcel = new JFrame ("Saving Files");
+		frameExcel.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
+		JTextArea taExcel = new JTextArea (20, 30);
+		frameExcel.getContentPane().add(taExcel);
+		frameExcel.pack();
+		frameExcel.setVisible(true);	
+		taExcel.setText("Writing production plan...\nPlease Wait.");
 	
-		// dump load balanced gantt to csv file
+		// dump load list to csv file
 		try
 		{
-			PrintWriter out = new PrintWriter("loadlist_"+jobFile);
+			PrintWriter out = new PrintWriter("loadlist_"+ workerFile + "_" + jobFile);
 			for (int i = 0; i < workerCount; i++)
 			{
 				out.print(workers[i].getWorkerName() + ","); // dump worker name cell
 
-				while (!workers[i].loadSequence.isEmpty())
+				for (int j = 0; j < workers[i].getLoadSequence().size(); j++)
 				{
-					out.print(workers[i].getLoadSequence() + ","); // dump worker i job list					
+					out.print(workers[i].getLoadSequence().get(j).getJobName() + ","); // dump worker i job list					
 				}
 				
 				out.print("\n"); // dump worker name cell
@@ -381,5 +457,216 @@ public class FCFS
 			frameError.setVisible(true);	
 			taError.setText("Load list not written. Is the file already open?");	 
 		}
-	}
+
+		// dump production plan excel
+		try
+		{
+			// create a new file
+			FileOutputStream out = new FileOutputStream("production_plan_" + workerFile + "_" + jobFile + ".xlsx");
+			// create a new workbook
+			XSSFWorkbook wb = new XSSFWorkbook();
+			// create a new sheet
+			XSSFSheet s = (XSSFSheet) wb.createSheet();
+			// declare a row object reference
+			XSSFRow r = null;
+			// declare a cell object reference
+			XSSFCell c = null;
+			// set the sheet name in Unicode
+			wb.setSheetName(0, "Production Plan " + jobFile);
+			// create cell data format
+			XSSFDataFormat df = wb.createDataFormat();
+			// create 2 fonts objects
+			XSSFFont f = wb.createFont();
+			//set font 1 to 12 point type
+			f.setFontHeightInPoints((short) 12);
+			//make it black
+			f.setColor((short)0x0);
+			// set font to Calibri
+			f.setFontName("Calibri");			
+
+			// create cell styles, 0 = blank cell, [1,workerCount] = worker colours
+			XSSFCellStyle cellStyles[] = new XSSFCellStyle[workerCount + 1];	
+			for (int i = 0; i < workerCount + 1; i++)
+			{
+				 cellStyles[i] = wb.createCellStyle();
+	
+			}
+
+			short colour = (short)(IndexedColors.LEMON_CHIFFON.getIndex() + 14);
+			
+			// set cell style attributes, top bottom borders, for filled cells
+			for (int i = 0; i < workerCount; i++)
+			{
+				cellStyles[i].setFont(f);
+				cellStyles[i].setDataFormat(df.getFormat("#,##0.0"));
+				cellStyles[i].setBorderBottom(CellStyle.BORDER_THIN);
+				cellStyles[i].setBottomBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderLeft(CellStyle.BORDER_NONE);
+				cellStyles[i].setLeftBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+				cellStyles[i].setRightBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setBorderTop(CellStyle.BORDER_THIN);
+				cellStyles[i].setTopBorderColor(IndexedColors.BLACK.getIndex());
+				cellStyles[i].setFillForegroundColor(colour);
+				cellStyles[i].setFillPattern(CellStyle.SOLID_FOREGROUND);
+				colour++; // start at orange, increment colours for each worker
+			}
+
+			// create a sheet	    
+
+			// end of spreadsheet column buffer
+			short maxLoad = (int)SIMULATION_TIME * 2;
+		
+			for (int rownum = 0; rownum < workerCount+10; rownum++)
+			{
+				// 	create a row
+				r = (XSSFRow) ((org.apache.poi.ss.usermodel.Sheet) s).createRow(rownum);
+	
+				// create maxLoad+1 cells per row
+				for (int cellnum = 0; cellnum < maxLoad; cellnum++)
+				{
+					// create a string cell
+					c = r.createCell(cellnum);
+				}
+			}
+		
+			cellStyles[workerCount].setFont(f);
+			
+			// put start time
+			r = s.getRow(0);
+			c = r.getCell(0);
+			c.setCellType(CellType.STRING);
+			c.setCellValue(LocalDateTime.now().toString());
+			c.setCellStyle(cellStyles[workerCount]);
+
+			// put in hours
+			int week = 0;
+			boolean flag = true;
+			for (int i = 1; i < maxLoad; i++)
+			{
+				r = s.getRow(0);
+				c = r.getCell(i);
+				c.setCellType(CellType.NUMERIC);
+				c.setCellStyle(cellStyles[workerCount]);
+				
+				c.setCellValue((i-1)/2);
+				
+				if (((i-1)/2) % 75 == 0)
+				{
+					c.setCellValue("Week " + week);
+					if (flag == false)
+					{
+						flag = true;
+						week +=2 ;
+					}
+					
+					else
+					{
+						flag = false;
+					}
+				}
+				
+
+
+
+
+			}
+		
+			// put in worker names
+			for (int i = 0; i < workerCount; i++)
+			{
+				r = s.getRow(i+1);
+				c = r.getCell(0);
+				c.setCellType(CellType.STRING);
+				c.setCellStyle(cellStyles[i]);
+				c.setCellValue(workers[i].getWorkerName());
+			}
+
+			// put in jobs
+			for (int i = 0; i < workerCount; i++)
+			{
+				int startCell = 0;
+				int finishCell = 0;
+				double startCellTemp = 0;
+				double finishCellTemp = 0;
+				
+				for (int j = 0; j < workers[i].getLoadSequence().size(); j++) 
+				{
+					// compute starting, finish cell, work in half hour units
+					startCellTemp = 2 * (workers[i].getLoadSequence().get(j).getStartTime() + 1); // +1 to account for worker column
+					finishCellTemp = 2 * (workers[i].getLoadSequence().get(j).getJobTime()); // extra factor of 2 to double cells
+					startCellTemp = Math.round(startCellTemp);
+					finishCellTemp = Math.round(finishCellTemp);
+					finishCellTemp += startCellTemp;
+
+					startCell = (int) startCellTemp;
+					finishCell = (int) finishCellTemp;
+
+					// write start cell
+					r = s.getRow(i+1);
+					c = r.getCell(startCell);
+					c.setCellType(CellType.STRING);
+					c.setCellValue(workers[i].getLoadSequence().get(j).getJobName());	
+					cellStyles[i].setBorderLeft(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+					cellStyles[i].setBorderTop(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderBottom(CellStyle.BORDER_THIN);
+					c.setCellStyle(cellStyles[i]);
+					
+					for (int l=startCell+1; l < finishCell; l++)
+					{
+						// write fill cells
+						c = r.getCell(l);
+						c.setCellType(CellType.STRING);
+						cellStyles[i].setBorderLeft(CellStyle.BORDER_NONE);
+						cellStyles[i].setBorderRight(CellStyle.BORDER_NONE);
+
+						c.setCellStyle(cellStyles[i]);
+					}
+					
+					// write finish cell
+					c = r.getCell(finishCell);
+					c.setCellType(CellType.STRING);
+					c.setCellStyle(cellStyles[i]);
+					
+					cellStyles[i].setBorderLeft(CellStyle.BORDER_THIN);
+					cellStyles[i].setBorderRight(CellStyle.BORDER_THIN);
+
+					c.setCellStyle(cellStyles[i]);
+				}
+			}		
+		
+			// put in stats
+			r = s.getRow(workerCount+1);
+			c = r.getCell(0);
+			c.setCellValue(info); 
+	
+			cellStyles[workerCount].setWrapText(true);
+			cellStyles[workerCount].setAlignment(CellStyle.ALIGN_CENTER);
+			cellStyles[workerCount].setVerticalAlignment(CellStyle.VERTICAL_TOP);
+			c.setCellStyle(cellStyles[workerCount]);
+			
+			r.setHeight((short)100000);
+			s.autoSizeColumn(0);
+
+			// write the workbook to the output stream
+			wb.write(out);
+			out.close();
+			wb.close();
+			
+			System.out.println("file write done");
+			taExcel.setText("Production plan finished.");
+		}
+		
+		catch(FileNotFoundException e)
+		{
+			JFrame frameError = new JFrame ("ERROR");
+			frameError.setDefaultCloseOperation (JFrame.EXIT_ON_CLOSE);
+			JTextArea taError = new JTextArea (20, 30);
+			frameError.getContentPane().add(taError);
+			frameError.pack();
+			frameError.setVisible(true);	
+			taError.setText("Production plan not written. Is the file already open?");	 
+		}		
+	}	
 }

@@ -9,8 +9,8 @@ public class Worker
 	private List<ProcessControlBlock> workerQ;
 	private ProcessControlBlock job;
 	private int jobsLoaded;
-	private double jobLoadTime;
-	public List<String> loadSequence = new ArrayList<String>();
+
+	private List<ProcessControlBlock> loadSequence = new ArrayList<ProcessControlBlock>();
 	private boolean busy;
 	private double idleTime;
 	
@@ -21,11 +21,37 @@ public class Worker
 		this.workerQ = new ArrayList<ProcessControlBlock>();
 		this.job = null;
 		this.jobsLoaded = 0;
-		this.jobLoadTime = 0;
 		this.busy = false;
 		this.idleTime = 0;
 	}
-
+	
+	public void setFinishedTime(double finishedTime)
+	{
+		job.setFinishedTime(finishedTime);
+	}
+	
+	public double getFinishedTime()
+	{
+		if (job != null)
+		{
+			return job.getFinishedTime();
+		}
+		
+		else
+		{
+			return 0;
+		}
+	}
+	
+	public void setStartTime(double startTime)
+	{
+		job.setStartTime(startTime);
+	}
+	
+	public double getStartTime()
+	{
+		return (double) job.getStartTime();
+	}
 
 	
 	public void setIdleTime(double idleTime)
@@ -37,14 +63,14 @@ public class Worker
 	{
 		return idleTime;
 	}
-	public void putLoadSequence(String name)
+	public void putLoadSequence(ProcessControlBlock job)
 	{
-		loadSequence.add(name);
+		loadSequence.add(job);
 	}
 	
-	public String getLoadSequence()
+	public List<ProcessControlBlock> getLoadSequence()
 	{
-		return loadSequence.remove(0);
+		return loadSequence;
 	}
 	
 	public String getWorkerName()
@@ -115,16 +141,6 @@ public class Worker
 	public int getJobsLoaded()
 	{
 		return jobsLoaded;
-	}
-	
-	public void setJobLoadTime(double jobLoadTime)
-	{
-		this.jobLoadTime = jobLoadTime;
-	}
-	
-	public double getJobLoadTime()
-	{
-		return jobLoadTime;
 	}
 	
 	public double getArrivalTime()

@@ -19,11 +19,10 @@ import javax.swing.JTextArea;
 public class CsvToJavaObject
 {
 	// storage for each object imported
-//	private PriorityQueue jobList = new PriorityQueue();
 	private List<ProcessControlBlock> jobList = new ArrayList<ProcessControlBlock>();
-	private int itemsLoaded = 0;
-	private int workersLoaded = 0;
-	private int itemsFromFile = 0;
+	private int itemsLoaded = 0; // jobs loaded to master queue ready for assignment
+	private int workersLoaded = 0; // workers loaded from file and ready to build
+	private int itemsFromFile = 0; // jobs in file kitted and ready to build
 	
 	// load jobs csv file to object
 	public void convertJobsCsvToJava(String csvFileToRead)
@@ -47,7 +46,7 @@ public class CsvToJavaObject
 				String[] jobs = line.split(splitBy);
 
 				// create job object to store values, each index represents adjacent cell in csv
-				ProcessControlBlock jobObject = new ProcessControlBlock(jobs[0],Double.parseDouble((jobs[1])),Double.parseDouble(jobs[2]),Double.parseDouble(jobs[3]), Double.parseDouble(jobs[4]), Boolean.parseBoolean(jobs[5]), Integer.parseInt(jobs[6]));
+				ProcessControlBlock jobObject = new ProcessControlBlock(jobs[0],Double.parseDouble((jobs[1])),Double.parseDouble(jobs[2]),Double.parseDouble(jobs[3]), Double.parseDouble(jobs[4]), Boolean.parseBoolean(jobs[5]), Integer.parseInt(jobs[6]), jobs[7]);
 
 				// add values from csv to job object
 				jobObject.setJobName(jobs[0]);
@@ -57,6 +56,8 @@ public class CsvToJavaObject
 				jobObject.setPriority(Double.parseDouble(jobs[4]));
 				jobObject.setKitted(Boolean.parseBoolean(jobs[5]));
 				jobObject.setJobRank(Integer.parseInt(jobs[6]));
+				jobObject.setForcedTo(jobs[7]);
+				System.out.println(jobObject.getForcedTo());
 
 				// job ready to build
 				if (jobObject.getKitted() == true)
@@ -74,8 +75,7 @@ public class CsvToJavaObject
 			{
 				ProcessControlBlock temp = jobList.get(i);
 				System.out.println("job:" + temp.getJobName() +" priority:"+ temp.getPriority()+ " jobtime:"+temp.getJobTime()+ " arrivaltime:"+temp.getArrivalTime()+ " duetime:"+temp.getDueTime());
-			}
-			
+			}			
 			
 			// secondary sort by job time	
 			if (FCFS.algorithm == 1)
@@ -114,7 +114,7 @@ public class CsvToJavaObject
 			frameError.getContentPane().add(taError);
 			frameError.pack();
 			frameError.setVisible(true);	
-			taError.setText("File not found");	 
+			taError.setText("File not found or bad file");	 
 		}
 		
 		catch (IOException e)
@@ -140,6 +140,7 @@ public class CsvToJavaObject
 		}
 	}
 	
+	// return the number of line items loaded from job file
 	public int getItemsFromFile()
 	{
 		return itemsFromFile;
@@ -183,13 +184,13 @@ public class CsvToJavaObject
 			frameError.getContentPane().add(taError);
 			frameError.pack();
 			frameError.setVisible(true);	
-			taError.setText("File not found");	 
+			taError.setText("File not found or bad file");	 
 		}
 		
 		catch (IOException e)
 		{
 			e.printStackTrace();
-		}
+		}		
 		
 		// close file
 		finally
@@ -229,7 +230,6 @@ public class CsvToJavaObject
 		{
 			ProcessControlBlock temp;
 			temp = (ProcessControlBlock) jobList.remove(0);
-//			jobList.remove(0);
 			itemsLoaded--;
 			return temp;
 		}
@@ -259,6 +259,7 @@ public class CsvToJavaObject
 			return false;
 	}
 	
+	// return the number of workers loaded from file
 	public int getWorkersLoaded()
 	{
 		return workersLoaded;
@@ -362,6 +363,5 @@ public class CsvToJavaObject
 		
 		return comp;
 	} 
-
 }
 

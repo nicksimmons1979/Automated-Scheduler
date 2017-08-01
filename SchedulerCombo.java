@@ -24,15 +24,16 @@ public class SchedulerCombo extends JPanel
 	private JRadioButton sjf, ljf, edd, fdd;
 	private JSlider crSlider;
 
-	// create and define drop down combo box, fields and buttons for gui
-
+	// create and define fields and buttons for gui
 	public SchedulerCombo()
 	{			
 		// create, configure text fields
 		workerFile = new JTextField(30);
 		workerFile.setBackground(Color.white);
+		workerFile.setText("Worker File:");
 		jobFile = new JTextField(30);
 		jobFile.setBackground(Color.white);
+		jobFile.setText("Job File:");
 
 		// create, configure button
 		processButton = new JButton ("Process");
@@ -75,7 +76,7 @@ public class SchedulerCombo extends JPanel
 		crSlider.addChangeListener (sliderListener);
 		
 		// radio listeners
-		QuoteListener listener = new QuoteListener();
+		AlgoListener listener = new AlgoListener();
 		sjf.addActionListener (listener);
 		ljf.addActionListener (listener);
 		edd.addActionListener (listener);
@@ -89,6 +90,7 @@ public class SchedulerCombo extends JPanel
 		setPreferredSize (new Dimension (350, 225));
 		setBackground (Color.lightGray);
 
+		// add to gui
 		add(addWorkerButton);
 		add(addJobsButton);
 		add(processButton);
@@ -101,11 +103,13 @@ public class SchedulerCombo extends JPanel
 		add(workerFile);
 		add(jobFile);
 
+		// bind listers to gui objects
 		addWorkerButton.addActionListener(new AddWorkerButtonListener());
 		addJobsButton.addActionListener(new AddJobsButtonListener());
 		processButton.addActionListener(new ButtonListener());
 	}
 	
+	// create slider listener for safety buffer slider
 	private class SliderListener implements ChangeListener
 	{
 		public void stateChanged (ChangeEvent event)
@@ -142,6 +146,7 @@ public class SchedulerCombo extends JPanel
 				workerFile.setText ("No Worker File Chosen");
 			}
 			
+			// display worker file in gui
 			else 
 			{
 				FCFS.workerFile = file.getName();
@@ -166,6 +171,7 @@ public class SchedulerCombo extends JPanel
 				jobFile.setText ("No Jobs File Chosen");
 			}
 			
+			// display job file in gui
 			else 
 			{
 				FCFS.jobFile = file.getName();
@@ -175,40 +181,41 @@ public class SchedulerCombo extends JPanel
 	}
 	
 	// radio button control
-	private class QuoteListener implements ActionListener
+	private class AlgoListener implements ActionListener
 	{
 		public void actionPerformed (ActionEvent event)
 		{
 			Object source = event.getSource();
 			
-			// do nothing, flag already set in FCFS
+			// set algo to shortest job first
 			if (source == sjf)
 			{
 				FCFS.algorithm = 1;
 			}
 		
-			// flip flag in FCFS
+			// set algo to longest job first
 			else if (source == ljf)
 			{
 				FCFS.algorithm = 2;
 			}
 			
+			// set algo to earliest due date
 			else if (source == edd)
 			{
 				FCFS.algorithm = 3;
 			}
 			
+			// set algo to farthest due date
 			else if (source == fdd)
 			{
 				FCFS.algorithm = 4;
 			}
 		}
 	}
+	
+	// listener for late avoidance check box
 	private class LateListener implements ItemListener
 	{
-		//-----------------------------------------------------------------
-		// Updates the style of the label font style.
-		//-----------------------------------------------------------------
 		public void itemStateChanged (ItemEvent event)
 		{
 			if (lateBox.isSelected())
